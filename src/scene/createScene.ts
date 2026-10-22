@@ -224,7 +224,7 @@ export function createWarehouseScene(canvas: HTMLCanvasElement, sim: Simulation)
     for (const mesh of sheetMeshes) mesh.setEnabled(a > 0.02);
     for (const mesh of roofMeshes) mesh.setEnabled(roof && a > 0.02);
   }
-  setHall(0.45, false);
+  setHall(0.2, true);
   box(scene, 'door-header', [DOOR.width + 0.3, 0.6, 0.35], [DOOR.x, 4.85, HALL.z0], mats.steel);
   for (const s of [-1, 1]) cylinder(scene, 'bollard', 1.1, 0.22, [DOOR.x + s * (DOOR.width / 2 + 0.35), 0.55, HALL.z0 - 0.45], mats.protector, undefined, 12);
   // Natpis na pročelju.

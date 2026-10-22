@@ -22,7 +22,7 @@ Svaki push na `main` pokreće testove, produkcijski build i objavu kroz GitHub A
 
 Kamera ima šest pogleda: pregled, hala, rampa, parking, viličar i tlocrt. Povlačenjem se okreće, a kotačić ili dva prsta približavaju.
 
-Hala je od limenih sendvič panela s antracit opšavom. Klizač **Zidovi** mijenja koliko se kroz lim vidi unutra (0–100 %, zadano 45 %), a prekidač **Krov** dodaje krov. Ispod 3D prikaza su i kontrole vremena: pokreni ili pauziraj, brzina od 1 minute do 1 tjedna u sekundi, preskakanje na sljedeći dan ili mjesec i ponovni početak.
+Hala je od limenih sendvič panela s antracit opšavom. Klizač **Zidovi** mijenja koliko se kroz lim vidi unutra (0–100 %, zadano 20 %), a prekidač **Krov** pokazuje ili skriva krov (zadano uključen). Ispod 3D prikaza su i kontrole vremena: pokreni ili pauziraj, brzina od 1 minute do 1 tjedna u sekundi, preskakanje na sljedeći dan ili mjesec i ponovni početak.
 
 Sučelje je složeno najprije za mobitel: na uskom ekranu prvo dolaze 3D prikaz, brojke i kontrole, zatim zarada, raspored dana i postavke. Na računalu su postavke lijevo od prikaza.
 

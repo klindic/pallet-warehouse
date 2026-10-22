@@ -20,6 +20,8 @@ const num = (id: string, value: number, min: number, max: number, step: number) 
   `<input id="${id}" type="number" inputmode="decimal" min="${min}" max="${max}" step="${step}" value="${value}" required/>`;
 
 export const DEFAULT_SPEED = 2;
+/** Zadani izgled hale: zidovi 20 % vidljivi, krov uključen. */
+export const DEFAULT_HALL = { walls: 0.2, roof: true } as const;
 const price = (v: number) => `${v.toLocaleString('hr-HR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 
 const n0 = (v: number) => v.toLocaleString('hr-HR', { maximumFractionDigits: 0 });
@@ -76,9 +78,9 @@ export function mountUI(root: HTMLElement) {
           </div>
           <div class="view-controls">
             <label for="walls">Zidovi</label>
-            <input id="walls" type="range" min="0" max="100" step="5" value="45"/>
-            <output id="walls-output">45 %</output>
-            <label class="toggle"><input id="roof" type="checkbox"/><span>Krov</span></label>
+            <input id="walls" type="range" min="0" max="100" step="5" value="${DEFAULT_HALL.walls * 100}"/>
+            <output id="walls-output">${DEFAULT_HALL.walls * 100} %</output>
+            <label class="toggle"><input id="roof" type="checkbox"${DEFAULT_HALL.roof ? ' checked' : ''}/><span>Krov</span></label>
           </div>
         </div>
         <div class="scene-footer">

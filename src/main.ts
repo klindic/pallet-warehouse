@@ -5,7 +5,7 @@ import { DEFAULT_CONFIG, DEFAULT_RAMP, DEMAND, SPEEDS } from './simulation/confi
 import { Simulation } from './simulation/engine';
 import { PARKING } from './simulation/layout';
 import type { DemandPreset, SimulationConfig } from './simulation/types';
-import { DEFAULT_SPEED, icons, mountUI, rampText } from './ui';
+import { DEFAULT_HALL, DEFAULT_SPEED, icons, mountUI, rampText } from './ui';
 
 mountUI(document.getElementById('app')!);
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -16,7 +16,7 @@ let scene: WarehouseScene | null = null;
 let playing = true, speedIndex = DEFAULT_SPEED, ramp: DemandPreset = DEFAULT_RAMP, camera: CameraView = 'overview';
 let lastFrame = performance.now(), lastUI = 0, lastBoards = 0;
 let toastTimer: ReturnType<typeof setTimeout>;
-let wallOpacity = 0.45, roofVisible = false;
+let wallOpacity: number = DEFAULT_HALL.walls, roofVisible: boolean = DEFAULT_HALL.roof;
 
 function toast(message: string) { el('toast').textContent = message; el('toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (el('toast').hidden = true), 3200); }
 function updatePlayback() {
