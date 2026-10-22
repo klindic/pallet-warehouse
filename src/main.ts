@@ -1,11 +1,11 @@
 import './styles.css';
 import { exportCSV, renderEarnings, renderHud, renderOps, renderSchedule, renderSite } from './analytics';
 import { createWarehouseScene, type CameraView, type WarehouseScene } from './scene/createScene';
-import { DEFAULT_CONFIG, DEMAND, SPEEDS } from './simulation/config';
+import { DEFAULT_CONFIG, DEFAULT_RAMP, DEMAND, SPEEDS } from './simulation/config';
 import { Simulation } from './simulation/engine';
 import { PARKING } from './simulation/layout';
 import type { DemandPreset, SimulationConfig } from './simulation/types';
-import { DEFAULT_SPEED, icons, mountUI } from './ui';
+import { DEFAULT_SPEED, icons, mountUI, rampText } from './ui';
 
 mountUI(document.getElementById('app')!);
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -13,7 +13,7 @@ const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElem
 let config: SimulationConfig = { ...DEFAULT_CONFIG };
 let sim = new Simulation(config);
 let scene: WarehouseScene | null = null;
-let playing = true, speedIndex = DEFAULT_SPEED, ramp: DemandPreset = 'normal', camera: CameraView = 'overview';
+let playing = true, speedIndex = DEFAULT_SPEED, ramp: DemandPreset = DEFAULT_RAMP, camera: CameraView = 'overview';
 let lastFrame = performance.now(), lastUI = 0, lastBoards = 0;
 let toastTimer: ReturnType<typeof setTimeout>;
 let wallOpacity = 0.45, roofVisible = false;
@@ -72,8 +72,7 @@ el('apply').addEventListener('click', () => {
 document.querySelectorAll<HTMLButtonElement>('[data-ramp]').forEach(button => button.addEventListener('click', () => {
   ramp = button.dataset.ramp as DemandPreset;
   document.querySelectorAll('[data-ramp]').forEach(b => b.classList.toggle('selected', b === button));
-  const days = DEMAND[ramp].days;
-  el('ramp-help').textContent = `Puna potražnja nakon ~${days} radnih dana (oko ${Math.round(days / 21)} mjeseci).`;
+  el('ramp-help').textContent = rampText(DEMAND[ramp].days);
   markDirty();
 }));
 document.querySelectorAll('.control-panel input, .control-panel select').forEach(input => input.addEventListener('input', markDirty));

@@ -4,18 +4,19 @@ import type { DemandPreset, SimulationConfig } from './types';
 // Ostalo za halu od 1.620 m²: struja, osiguranje robe, komunalna naknada, knjigovođa, održavanje, otpad, alarm.
 export const COSTS = { wage: 2730, leasing: 700, other: 1300 } as const;
 
-export const DEFAULT_CONFIG: SimulationConfig = {
-  seed: 2027, rackLevels: 4, forklifts: 1,
-  pricePerPalletDay: 0.5, handlingFee: 2, monthlyCosts: COSTS.wage + COSTS.leasing + COSTS.other,
-  rampDays: 120, startDemand: 0.8, peakDemand: 10,
-  palletsMin: 16, palletsMax: 32, dwellMin: 5, dwellMax: 30,
-  workStartHour: 7, workHours: 8, workdaysPerWeek: 5, earlyChance: 0.15, lateChance: 0.12, noShowChance: 0.03,
-};
-
 export const DEMAND: Record<DemandPreset, { label: string; days: number }> = {
   slow: { label: 'Spor', days: 200 },
   normal: { label: 'Normalan', days: 120 },
   fast: { label: 'Brz', days: 60 },
+};
+export const DEFAULT_RAMP: DemandPreset = 'fast';
+
+export const DEFAULT_CONFIG: SimulationConfig = {
+  seed: 2027, rackLevels: 4, forklifts: 1,
+  pricePerPalletDay: 0.5, handlingFee: 2, monthlyCosts: COSTS.wage + COSTS.leasing + COSTS.other,
+  rampDays: DEMAND[DEFAULT_RAMP].days, startDemand: 0.8, peakDemand: 10,
+  palletsMin: 16, palletsMax: 32, dwellMin: 5, dwellMax: 30,
+  workStartHour: 7, workHours: 8, workdaysPerWeek: 5, earlyChance: 0.15, lateChance: 0.12, noShowChance: 0.03,
 };
 
 // Izmišljeni klijenti po vrsti robe; boja je boja robe na paleti u 3D prikazu.

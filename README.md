@@ -36,7 +36,7 @@ Sučelje je složeno najprije za mobitel: na uskom ekranu prvo dolaze 3D prikaz,
 6. Između šlepera viličar sprema robu s poda u regale i unaprijed izvlači robu za sljedeći odvoz. Zadnjih 90 minuta dana priprema robu za jutarnje odvoze.
 7. Viličarist sjedne na 5 minuta nakon otprilike 2 h rada i ima 30 minuta gableca.
 
-Potražnja raste po S-krivulji: na početku je oko 0,8 upita za dovoz dnevno, a nakon oko 120 radnih dana oko 10. Radi se 8 h dnevno, od ponedjeljka do petka. Noći i vikendi se preskaču.
+Potražnja raste po S-krivulji: na početku je oko 0,8 upita za dovoz dnevno, a nakon oko 60 radnih dana (oko 3 mjeseca) oko 10. To je zadani rast **Brz**; u postavkama se može usporiti na **Normalan** (120 radnih dana) ili **Spor** (200 radnih dana). Radi se 8 h dnevno, od ponedjeljka do petka. Noći i vikendi se preskaču.
 
 ## Zarada
 
@@ -48,11 +48,11 @@ Uz zadane postavke posao se razvija ovako:
 
 | Mjesec | Popunjenost | Prihod | Od toga manipulacija | Nakon troškova | Viličar radi | Šlepera dnevno |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1. | 17 % | 5.500 € | 1.500 € | 700 € | 1,2 h | 1,6 |
-| 3. | 64 % | 22.400 € | 7.400 € | 17.600 € | 5,3 h | 7,0 |
-| 6.–12. | 84–91 % | 28.000–30.000 € | 8.600–9.400 € | 23.000–25.000 € | 6,7–7,0 h | 8,6–9,0 |
+| 1. | 20 % | 6.600 € | 1.900 € | 1.700 € | 1,4 h | 1,9 |
+| 2. | 79 % | 23.400 € | 6.700 € | 19.000 € | 5,4 h | 7,0 |
+| 3.–12. | 79–93 % | 27.700–29.800 € | 8.300–9.500 € | 22.900–25.200 € | 6,5–7,0 h | 8,4–9,0 |
 
-Prihod pokrije sve troškove od početka već u drugom mjesecu. Prva godina završava s oko 300.000 € prihoda i oko 240.000 € viška. Iz tog viška plaća se rata kredita za zemljište i halu.
+Prihod pokrije sve troškove od početka već na kraju prvog mjeseca. Prva godina završava s oko 320.000 € prihoda i oko 263.000 € viška. Iz tog viška plaća se rata kredita za zemljište i halu.
 
 Na punom skladištu viličar efektivno radi oko 6,8 h dnevno (dani od oko 5,8 do 7,5 h). Uz pauze i gablec od oko 37 minuta to je puno radno vrijeme. Prekovremeno je prosječno oko 6 minuta dnevno, kad šleper kasni pa ga treba dovršiti. Usko grlo je rampa s jednim viličarom: oko pola upita za dovoz se odbije jer nema termina. Drugi viličar s još jednim skladištarom popuni skladište do kraja (98 %), ali donosi samo oko 3.500 € mjesečno više, a druga plaća i drugi leasing koštaju oko 3.400 €.
 

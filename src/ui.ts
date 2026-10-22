@@ -1,4 +1,5 @@
-import { CLIENTS, COSTS, DEFAULT_CONFIG, SPEEDS } from './simulation/config';
+import { CLIENTS, COSTS, DEFAULT_CONFIG, DEFAULT_RAMP, DEMAND, SPEEDS } from './simulation/config';
+import type { DemandPreset } from './simulation/types';
 import { PARKING, SITE, buildLayout } from './simulation/layout';
 
 export const icons = {
@@ -22,6 +23,12 @@ export const DEFAULT_SPEED = 2;
 const price = (v: number) => `${v.toLocaleString('hr-HR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 
 const n0 = (v: number) => v.toLocaleString('hr-HR', { maximumFractionDigits: 0 });
+
+export function rampText(days: number) {
+  const months = Math.max(1, Math.round(days / 21));
+  const word = months % 10 === 1 && months % 100 !== 11 ? 'mjesec' : [2, 3, 4].includes(months % 10) && ![12, 13, 14].includes(months % 100) ? 'mjeseca' : 'mjeseci';
+  return `Puna potražnja nakon ~${days} radnih dana (oko ${months} ${word}).`;
+}
 
 export function mountUI(root: HTMLElement) {
   const d = DEFAULT_CONFIG;
@@ -106,8 +113,8 @@ export function mountUI(root: HTMLElement) {
       <aside class="card control-panel area-settings" aria-labelledby="settings-title">
         <div class="card-heading"><div><span class="eyebrow">Postavke</span><h2 id="settings-title">Pretpostavke posla</h2></div></div>
         <label class="field-label" id="ramp-label">Rast potražnje</label>
-        <div class="segmented" role="group" aria-labelledby="ramp-label"><button data-ramp="slow">Spor</button><button data-ramp="normal" class="selected">Normalan</button><button data-ramp="fast">Brz</button></div>
-        <p id="ramp-help" class="field-help">Puna potražnja nakon ~120 radnih dana (oko 6 mjeseci).</p>
+        <div class="segmented" role="group" aria-labelledby="ramp-label">${(Object.keys(DEMAND) as DemandPreset[]).map(k => `<button data-ramp="${k}"${k === DEFAULT_RAMP ? ' class="selected"' : ''}>${DEMAND[k].label}</button>`).join('')}</div>
+        <p id="ramp-help" class="field-help">${rampText(DEMAND[DEFAULT_RAMP].days)}</p>
         <div class="field-row"><label for="price">Cijena po paleti <small>€ po danu skladištenja</small></label>${num('price', d.pricePerPalletDay, 0.05, 20, 0.05)}</div>
         <div class="field-row"><label for="handling">Manipulacija <small>€ po paleti na ulazu i na izlazu</small></label>${num('handling', d.handlingFee, 0.5, 50, 0.5)}</div>
         <div class="field-row"><label for="peak">Upiti za dovoz <small>šlepera dnevno kad posao procvjeta</small></label>${num('peak', d.peakDemand, 0.5, 20, 0.1)}</div>
