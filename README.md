@@ -35,11 +35,11 @@ Radi se 8 h dnevno, od ponedjeljka do petka. Noći i vikendi se preskaču.
 
 ## Zarada
 
-Svake ponoći naplaćuje se **broj paleta na skladištu × cijena po paleti po danu** (zadano 0,50 €), i to za svaki kalendarski dan, pa i vikendom. Po želji se dodaje i naknada za manipulaciju po paleti na ulazu i izlazu. Mjesečni troškovi (zadano 12.000 €: rata kredita, plaće za tri ortaka, struja i leasing viličara) raspoređuju se po danima.
+Svake ponoći naplaćuje se **broj paleta na skladištu × cijena po paleti po danu** (zadano 0,50 €), i to za svaki kalendarski dan, pa i vikendom. Po želji se dodaje i naknada za manipulaciju po paleti na ulazu i izlazu. Mjesečni troškovi raspoređuju se po danima. Zadano je 4.330 € mjesečno: plaća skladištara koji radi na viličaru (1.600 € neto, što uz stopu poreza na dohodak od 21,6 % u Sisku firmu stoji oko 2.730 €), leasing viličara 700 € i ostali troškovi 900 € (struja, voda, osiguranje, knjigovođa). Rata kredita i plaće ostale dvojice ortaka nisu uključene. Svaka stavka mijenja se posebno u postavkama.
 
 Ploča **Zarada** prikazuje današnji prihod, prihod ovog mjeseca, ukupni prihod i ono što ostane nakon troškova. Tu je i projekcija iz zadnjih 30 dana i dan od kojeg je prihod pokrio troškove. **CSV po danima** izvozi sve dnevne brojke.
 
-Uz zadane postavke posao se razvija ovako: u prvom mjesecu skladište je oko 12 % puno, nakon 3–4 mjeseca 85–95 %. Na punom skladištu prihod od samog skladištenja (0,50 € po paleti dnevno) je oko 10.400 € mjesečno, što ne pokriva 12.000 € troškova. Prva godina tada završava s oko 47.000 € minusa. Uz naknadu za manipulaciju od 2 € po paleti na ulazu i izlazu prihod raste na oko 17.300 € mjesečno, a prva godina završava s oko 18.000 € plusa. Viličar je na punom skladištu zauzet oko 40 % radnog vremena, pa je usko grlo broj mjesta, a ne viličar.
+Uz zadane postavke posao se razvija ovako: u prvom mjesecu skladište je oko 12 % puno, nakon 3–4 mjeseca 85–95 %. Na punom skladištu prihod od samog skladištenja (0,50 € po paleti dnevno) je oko 10.400 € mjesečno, a nakon troškova ostaje oko 6.000 € mjesečno. Prvi mjesec je oko 3.000 € u minusu, od trećeg mjeseca posao je u plusu, a do kraja travnja prihod pokrije sve troškove od početka. Prva godina završava s oko 45.000 € viška. Uz naknadu za manipulaciju od 2 € po paleti na ulazu i izlazu na punom skladištu ostaje oko 13.000 € mjesečno, a prva godina završava s oko 110.000 € viška. Iz tog viška plaća se rata kredita, ako ga ima. Viličar je na punom skladištu zauzet oko 40 % radnog vremena, pa je usko grlo broj mjesta, a ne viličar.
 
 ## Pretpostavke i pojednostavljenja
 

@@ -1,8 +1,11 @@
 import type { DemandPreset, SimulationConfig } from './types';
 
+// Mjesečni troškovi bez rate kredita: plaća je samo za skladištara (1.600 € neto u Sisku, stopa poreza 21,6 %).
+export const COSTS = { wage: 2730, leasing: 700, other: 900 } as const;
+
 export const DEFAULT_CONFIG: SimulationConfig = {
   seed: 2027, rackLevels: 4, forklifts: 1,
-  pricePerPalletDay: 0.5, handlingFee: 0, monthlyCosts: 12000,
+  pricePerPalletDay: 0.5, handlingFee: 0, monthlyCosts: COSTS.wage + COSTS.leasing + COSTS.other,
   rampDays: 120, startDemand: 0.5, peakDemand: 4.2,
   palletsMin: 16, palletsMax: 32, dwellMin: 2, dwellMax: 20,
   workStartHour: 7, workHours: 8, workdaysPerWeek: 5, lateChance: 0.12,

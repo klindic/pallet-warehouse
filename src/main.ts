@@ -52,7 +52,7 @@ function readConfig(): SimulationConfig | null {
   const dmin = Math.min(v('dmin'), v('dmax')), dmax = Math.max(v('dmin'), v('dmax'));
   return {
     ...config, seed: v('seed'), pricePerPalletDay: v('price'), peakDemand: v('peak'), palletsMin: pmin, palletsMax: Math.min(32, pmax),
-    dwellMin: dmin, dwellMax: dmax, rackLevels: v('levels'), forklifts: v('forklifts'), monthlyCosts: v('costs'), handlingFee: v('handling'),
+    dwellMin: dmin, dwellMax: dmax, rackLevels: v('levels'), forklifts: v('forklifts'), monthlyCosts: v('wage') + v('leasing') + v('other'), handlingFee: v('handling'),
     workdaysPerWeek: v('workdays'), workStartHour: v('start'), workHours: v('hours'), lateChance: v('late') / 100, rampDays: DEMAND[ramp].days,
   };
 }

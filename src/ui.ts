@@ -1,4 +1,4 @@
-import { CLIENTS, DEFAULT_CONFIG, SPEEDS } from './simulation/config';
+import { CLIENTS, COSTS, DEFAULT_CONFIG, SPEEDS } from './simulation/config';
 
 export const icons = {
   play: '<svg viewBox="0 0 24 24"><path d="m8 5 11 7-11 7Z" fill="currentColor" stroke="none"/></svg>',
@@ -111,7 +111,9 @@ export function mountUI(root: HTMLElement) {
         <div class="field-row"><label for="levels">Razine regala <small id="levels-help">720 paletnih mjesta</small></label><select id="levels"><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option></select></div>
         <div class="field-row"><label for="forklifts">Viličari</label><select id="forklifts"><option value="1" selected>1</option><option value="2">2</option></select></div>
         <details class="advanced"><summary>Troškovi i radno vrijeme <span aria-hidden="true">+</span></summary><div class="advanced-content">
-          <div class="field-row"><label for="costs">Mjesečni troškovi <small>kredit, plaće, struja, leasing</small></label>${num('costs', d.monthlyCosts, 0, 200000, 100)}</div>
+          <div class="field-row"><label for="wage">Plaća skladištara <small>trošak firme; 1.600 € neto ≈ 2.730 €</small></label>${num('wage', COSTS.wage, 0, 50000, 10)}</div>
+          <div class="field-row"><label for="leasing">Leasing viličara <small>mjesečna rata</small></label>${num('leasing', COSTS.leasing, 0, 10000, 10)}</div>
+          <div class="field-row"><label for="other">Ostali troškovi <small>struja, voda, osiguranje, knjigovođa</small></label>${num('other', COSTS.other, 0, 50000, 10)}</div>
           <div class="field-row"><label for="handling">Manipulacija <small>€ po paleti, ulaz i izlaz</small></label>${num('handling', d.handlingFee, 0, 50, 0.5)}</div>
           <div class="field-row"><label for="workdays">Radni dani</label><select id="workdays"><option value="5" selected>pon–pet</option><option value="6">pon–sub</option></select></div>
           <div class="field-row"><label for="start">Početak rada</label><select id="start"><option value="6">06:00</option><option value="7" selected>07:00</option><option value="8">08:00</option></select></div>
