@@ -19,6 +19,10 @@ Svaki push na `main` pokreće testove, produkcijski build i objavu kroz GitHub A
 
 Kamera ima pet pogleda: pregled, hala, dvorište, viličar i tlocrt. Povlačenjem se okreće, a kotačić ili dva prsta približavaju.
 
+Hala je od limenih sendvič panela s antracit opšavom. Klizač **Zidovi** mijenja koliko se kroz lim vidi unutra (0–100 %, zadano 45 %), a prekidač **Krov** dodaje krov. Ispod 3D prikaza su i kontrole vremena: pokreni ili pauziraj, brzina od 1 minute do 1 tjedna u sekundi, preskakanje na sljedeći dan ili mjesec i ponovni početak.
+
+Sučelje je složeno najprije za mobitel: na uskom ekranu prvo dolaze 3D prikaz, brojke i kontrole, zatim zarada, raspored dana i postavke. Na računalu su postavke lijevo od prikaza.
+
 ## Kako teče dan
 
 1. U **06:30** dispečer (mi) slaže raspored: prvo odvoze robe kojoj je istekao dogovoreni rok, zatim nove dovoze. Zahtjev za dovoz odbija se ako za njega nema mjesta ili ako viličar ne bi stigao odraditi posao u radnom vremenu.

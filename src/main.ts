@@ -4,7 +4,7 @@ import { createWarehouseScene, type CameraView, type WarehouseScene } from './sc
 import { DEFAULT_CONFIG, DEMAND, SPEEDS } from './simulation/config';
 import { Simulation } from './simulation/engine';
 import type { DemandPreset, SimulationConfig } from './simulation/types';
-import { icons, mountUI } from './ui';
+import { DEFAULT_SPEED, icons, mountUI } from './ui';
 
 mountUI(document.getElementById('app')!);
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -12,17 +12,23 @@ const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElem
 let config: SimulationConfig = { ...DEFAULT_CONFIG };
 let sim = new Simulation(config);
 let scene: WarehouseScene | null = null;
-let playing = true, speedIndex = 2, ramp: DemandPreset = 'normal', camera: CameraView = 'overview';
+let playing = true, speedIndex = DEFAULT_SPEED, ramp: DemandPreset = 'normal', camera: CameraView = 'overview';
 let lastFrame = performance.now(), lastUI = 0, lastBoards = 0;
 let toastTimer: ReturnType<typeof setTimeout>;
+let wallOpacity = 0.45, roofVisible = false;
 
 function toast(message: string) { el('toast').textContent = message; el('toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (el('toast').hidden = true), 3200); }
-function updatePlayback() { el('play').innerHTML = `${playing ? icons.pause : icons.play}<span>${playing ? 'Pauziraj' : 'Pokreni'}</span>`; }
+function updatePlayback() {
+  const label = playing ? 'Pauziraj' : 'Pokreni';
+  el('play').innerHTML = `${playing ? icons.pause : icons.play}<span>${label}</span>`;
+  el('play').setAttribute('aria-label', label);
+}
 
 function createView() {
   scene?.dispose();
   scene = createWarehouseScene(el<HTMLCanvasElement>('scene'), sim);
   scene.focus(camera);
+  scene.setHall(wallOpacity, roofVisible);
   scene.update(sim, 0);
   el('scene-loading').hidden = true;
 }
@@ -51,13 +57,14 @@ function readConfig(): SimulationConfig | null {
   };
 }
 
+const workText = () => `Radi se ${config.workHours} h dnevno, od ${config.workStartHour}:00. Noći i vikendi se preskaču, a skladištenje se naplaćuje svaki kalendarski dan.`;
 function markDirty() { el<HTMLButtonElement>('apply').disabled = false; el('config-hint').textContent = 'Klikni gumb da simulacija krene ispočetka s novim postavkama.'; }
 
 el('apply').addEventListener('click', () => {
   const next = readConfig(); if (!next) return;
   restart(next);
   el<HTMLButtonElement>('apply').disabled = true;
-  el('config-hint').textContent = 'Promjene vrijede za novu simulaciju.';
+  el('config-hint').textContent = workText();
   toast('Nova simulacija je krenula od prvog radnog dana.');
 });
 document.querySelectorAll<HTMLButtonElement>('[data-ramp]').forEach(button => button.addEventListener('click', () => {
@@ -67,10 +74,23 @@ document.querySelectorAll<HTMLButtonElement>('[data-ramp]').forEach(button => bu
   el('ramp-help').textContent = `Puna potražnja nakon ~${days} radnih dana (oko ${Math.round(days / 21)} mjeseci).`;
   markDirty();
 }));
-document.querySelectorAll('.control-panel input, .control-panel select').forEach(input => { if ((input as HTMLElement).id !== 'speed') input.addEventListener('input', markDirty); });
+document.querySelectorAll('.control-panel input, .control-panel select').forEach(input => input.addEventListener('input', markDirty));
 el('levels').addEventListener('input', () => { el('levels-help').textContent = `${180 * Number(el<HTMLSelectElement>('levels').value)} paletnih mjesta`; });
 
-el('speed').addEventListener('input', () => { speedIndex = Number(el<HTMLInputElement>('speed').value); el('speed-output').textContent = SPEEDS[speedIndex].label; });
+function setSpeed(index: number) {
+  speedIndex = Math.max(0, Math.min(SPEEDS.length - 1, index));
+  el('speed-output').textContent = SPEEDS[speedIndex].label;
+  el<HTMLButtonElement>('slower').disabled = speedIndex === 0;
+  el<HTMLButtonElement>('faster').disabled = speedIndex === SPEEDS.length - 1;
+}
+el('slower').addEventListener('click', () => setSpeed(speedIndex - 1));
+el('faster').addEventListener('click', () => setSpeed(speedIndex + 1));
+el('walls').addEventListener('input', () => {
+  wallOpacity = Number(el<HTMLInputElement>('walls').value) / 100;
+  el('walls-output').textContent = `${Math.round(wallOpacity * 100)} %`;
+  scene?.setHall(wallOpacity, roofVisible);
+});
+el('roof').addEventListener('change', () => { roofVisible = el<HTMLInputElement>('roof').checked; scene?.setHall(wallOpacity, roofVisible); });
 el('play').addEventListener('click', () => { playing = !playing; lastFrame = performance.now(); updatePlayback(); });
 el('reset').addEventListener('click', () => { restart(config); toast('Ispočetka, s istim postavkama i istim tijekom posla.'); });
 el('next-day').addEventListener('click', () => { sim.skipToNextDay(); scene?.update(sim, 999); renderAll(); toast('Preskočeno na sljedeći radni dan.'); });
@@ -93,7 +113,7 @@ el('fullscreen').addEventListener('click', async () => {
 });
 document.addEventListener('visibilitychange', () => { lastFrame = performance.now(); });
 window.addEventListener('resize', () => scene?.resize());
-new ResizeObserver(() => scene?.resize()).observe(document.querySelector('.scene-panel')!);
+new ResizeObserver(() => scene?.resize()).observe(document.querySelector('.viewport')!);
 document.addEventListener('keydown', e => { if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); el('play').click(); } });
 
 function frame(now: number) {
@@ -115,7 +135,7 @@ function frame(now: number) {
 }
 
 try {
-  createView(); renderSite(sim); renderAll(); updatePlayback();
+  createView(); renderSite(sim); renderAll(); updatePlayback(); setSpeed(speedIndex);
 } catch (error) {
   playing = false;
   el('scene-loading').innerHTML = '<div class="error-box">3D prikaz se nije uspio pokrenuti. Provjeri podršku za WebGL i osvježi stranicu. Brojke ispod i dalje rade.</div>';

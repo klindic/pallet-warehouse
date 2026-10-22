@@ -7,7 +7,7 @@ import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent';
 import type { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture';
 import { Color3, Color4 } from '@babylonjs/core/Maths/math.color';
-import { Vector3 } from '@babylonjs/core/Maths/math.vector';
+import { Vector3, Vector4 } from '@babylonjs/core/Maths/math.vector';
 import { CreateBox } from '@babylonjs/core/Meshes/Builders/boxBuilder';
 import { CreateGround } from '@babylonjs/core/Meshes/Builders/groundBuilder';
 import { CreateIcoSphere } from '@babylonjs/core/Meshes/Builders/icoSphereBuilder';
@@ -28,6 +28,8 @@ import { PLAN_BOUNDS, PLAN_SCALE, drawPlan } from './planTexture';
 export type CameraView = 'overview' | 'hall' | 'yard' | 'forklift' | 'plan';
 export interface WarehouseScene {
   update(sim: Simulation, simDt: number): void;
+  /** Prozirnost limenih zidova (0–1) i je li krov vidljiv. */
+  setHall(opacity: number, roof: boolean): void;
   render(): void;
   focus(view: CameraView): void;
   resize(): void;
@@ -95,8 +97,7 @@ export function createWarehouseScene(canvas: HTMLCanvasElement, sim: Simulation)
 
   const m = sharedMaterials(scene);
   const mats = {
-    grass: material(scene, 'grass', '#6f8b52'), concrete: material(scene, 'concrete', '#c9cbc5'), panel: material(scene, 'wall-panel', '#dfe5e6', 0.16, 0.2),
-    steel: material(scene, 'frame-steel', '#3f4f5c'), upright: material(scene, 'upright', '#2f6db3', 1, 0.2), beam: material(scene, 'beam', '#e2702a', 1, 0.2),
+    grass: material(scene, 'grass', '#6f8b52'), concrete: material(scene, 'concrete', '#c9cbc5'),     steel: material(scene, 'frame-steel', '#3f4f5c'), upright: material(scene, 'upright', '#2f6db3', 1, 0.2), beam: material(scene, 'beam', '#e2702a', 1, 0.2),
     fence: material(scene, 'fence', '#355246'), mesh: material(scene, 'fence-mesh', '#355246', 0.28), wood: material(scene, 'pallet-wood', '#b98d55'),
     load: material(scene, 'pallet-load', '#ffffff', 1, 0.12), office: material(scene, 'office', '#f1f2ee'), window: material(scene, 'window', '#3b5664', 0.9, 0.5),
     trunk: material(scene, 'trunk', '#6b5038'), crown: material(scene, 'crown', '#4f7d3c'), house: material(scene, 'house', '#e9e1d2'), roof: material(scene, 'roof', '#a2513b'),
@@ -132,30 +133,97 @@ export function createWarehouseScene(canvas: HTMLCanvasElement, sim: Simulation)
   instanced(scene, 'fence-mesh', mats.mesh, panels);
   for (const x of [EXIT_GATE.x0, EXIT_GATE.x1, ENTRY_GATE.x0, ENTRY_GATE.x1]) box(scene, 'gate-pillar', [0.3, 2.1, 0.3], [x, 1.05, 0], mats.protector);
 
-  // Hala: betonski parapet, prozirni paneli, čelični okviri bez krova (prerez za pogled unutra).
-  const plinth = 1.1;
+  // Hala: betonski parapet, zidovi i krov od limenih panela s rebrima. Prozirnost se mijenja klizačem.
+  const plinth = 1.1, ridge = 1.2;
+  const sheet = new DynamicTexture('sheet-metal', { width: 256, height: 32 }, scene, true);
+  {
+    const c = sheet.getContext() as unknown as CanvasRenderingContext2D;
+    // Ravni dio lima je prozirniji od rebara, pa i poluprozirni zid čita kao lim, a ne kao staklo.
+    c.clearRect(0, 0, 256, 32);
+    c.fillStyle = 'rgba(160,168,174,.7)'; c.fillRect(0, 0, 256, 32);
+    for (let i = 0; i < 4; i++) {
+      const x = i * 64;
+      c.fillStyle = '#d9dee0'; c.fillRect(x + 3, 0, 6, 32);   // bok rebra na svjetlu
+      c.fillStyle = '#f3f5f6'; c.fillRect(x + 9, 0, 12, 32);  // tjeme rebra
+      c.fillStyle = '#7f888e'; c.fillRect(x + 21, 0, 6, 32);  // bok rebra u sjeni
+      c.fillStyle = 'rgba(160,169,174,.85)'; c.fillRect(x + 27, 0, 3, 32);
+    }
+    c.fillStyle = '#5a6469'; c.fillRect(0, 0, 3, 32);         // spoj panela (širina 1 m)
+    sheet.hasAlpha = true;
+    sheet.update(true);
+  }
+  const wallMat = material(scene, 'wall-sheet', '#ffffff', 1, 0.3); wallMat.diffuseTexture = sheet;
+  const roofMat = material(scene, 'roof-sheet', '#a3abb0', 1, 0.25); roofMat.diffuseTexture = sheet;
+  const gableMat = material(scene, 'gable-sheet', '#c4cacd', 1, 0.3);
+  const trimMat = material(scene, 'trim', '#3a4348', 1, 0.2);
+  const sheetMeshes: Mesh[] = [], roofMeshes: Mesh[] = [];
+  const sheetBox = (size: [number, number, number], pos: [number, number, number], mat: StandardMaterial) => {
+    const [sx, sy, sz] = size;
+    const u = (len: number) => new Vector4(0, 0, len, 1);
+    const mesh = CreateBox('sheet-panel', { width: sx, height: sy, depth: sz, faceUV: [u(sx), u(sx), u(sz), u(sz), u(sx), u(sx)] }, scene);
+    mesh.position.set(...pos); mesh.material = mat; mesh.isPickable = false;
+    return mesh;
+  };
   const wallParts: { p: [number, number, number]; s: [number, number, number] }[] = [];
-  const panelParts: typeof wallParts = [];
   const wall = (x0: number, z0: number, x1: number, z1: number, y0 = 0, y1 = H) => {
     const sx = Math.max(Math.abs(x1 - x0), 0.25), sz = Math.max(Math.abs(z1 - z0), 0.25);
     if (y0 < plinth) wallParts.push({ p: [(x0 + x1) / 2, (y0 + Math.min(plinth, y1)) / 2, (z0 + z1) / 2], s: [sx, Math.min(plinth, y1) - y0, sz] });
-    if (y1 > plinth) panelParts.push({ p: [(x0 + x1) / 2, (Math.max(plinth, y0) + y1) / 2, (z0 + z1) / 2], s: [sx, y1 - Math.max(plinth, y0), sz] });
+    if (y1 > plinth) sheetMeshes.push(sheetBox([sx, y1 - Math.max(plinth, y0), sz], [(x0 + x1) / 2, (Math.max(plinth, y0) + y1) / 2, (z0 + z1) / 2], wallMat));
   };
   wall(HALL.x0, HALL.z1, HALL.x1, HALL.z1); wall(HALL.x0, HALL.z0, HALL.x0, HALL.z1); wall(HALL.x1, HALL.z0, HALL.x1, HALL.z1);
   let cursor: number = HALL.x0;
   for (const d of DOORS) { wall(cursor, HALL.z0, d.x - d.width / 2, HALL.z0); wall(d.x - d.width / 2, HALL.z0, d.x + d.width / 2, HALL.z0, 4.6, H); cursor = d.x + d.width / 2; }
   wall(cursor, HALL.z0, HALL.x1, HALL.z0);
   instanced(scene, 'hall-plinth', mats.concrete, wallParts).receiveShadows = true;
-  instanced(scene, 'hall-panels', mats.panel, panelParts);
+  const halfSpan = (HALL.z1 - HALL.z0) / 2, slope = Math.atan2(ridge, halfSpan);
+  for (const side of [-1, 1]) {
+    const roof = sheetBox([HALL.x1 - HALL.x0 + 0.6, 0.12, Math.hypot(halfSpan, ridge) + 0.35], [(HALL.x0 + HALL.x1) / 2, H + ridge / 2 + 0.06, HALL.z0 + halfSpan * (side < 0 ? 0.5 : 1.5)], roofMat);
+    roof.rotation.x = side * slope;
+    roofMeshes.push(roof);
+  }
+  for (const x of [HALL.x0, HALL.x1]) {
+    const gable = gableRoof(scene, HALL.z1 - HALL.z0, 0.2, ridge);
+    gable.rotation.y = Math.PI / 2; gable.position.set(x, H, (HALL.z0 + HALL.z1) / 2); gable.material = gableMat;
+    sheetMeshes.push(gable);
+  }
   const frames: typeof wallParts = [];
   for (let x: number = HALL.x0; x <= HALL.x1 + 0.01; x += 5) {
     for (const z of [HALL.z0, HALL.z1]) frames.push({ p: [x, H / 2, z], s: [0.32, H, 0.32] });
-    frames.push({ p: [x, H + 0.25, (HALL.z0 + HALL.z1) / 2], s: [0.22, 0.5, HALL.z1 - HALL.z0] });
+    frames.push({ p: [x, H - 0.3, (HALL.z0 + HALL.z1) / 2], s: [0.22, 0.45, HALL.z1 - HALL.z0] });
   }
-  for (const z of [HALL.z0, HALL.z1, (HALL.z0 + HALL.z1) / 2]) frames.push({ p: [(HALL.x0 + HALL.x1) / 2, H + 0.45, z], s: [HALL.x1 - HALL.x0, 0.18, 0.18] });
-  for (const z of [HALL.z0, HALL.z1]) frames.push({ p: [HALL.x0, H / 2, z], s: [0.32, H, 0.32] });
+  for (const z of [HALL.z0, HALL.z1]) frames.push({ p: [(HALL.x0 + HALL.x1) / 2, H - 0.1, z], s: [HALL.x1 - HALL.x0, 0.18, 0.18] });
+  frames.push({ p: [(HALL.x0 + HALL.x1) / 2, H + ridge - 0.2, (HALL.z0 + HALL.z1) / 2], s: [HALL.x1 - HALL.x0, 0.18, 0.18] });
+  // Vodoravne fuge sendvič panela svakih 1 m: oštre na svakoj udaljenosti, za razliku od teksture.
+  const jointMat = material(scene, 'panel-joint', '#4b555b', 1, 0.2);
+  const joints: typeof wallParts = [];
+  for (let y = plinth + 1; y < H - 0.5; y += 1) {
+    for (const z of [HALL.z0 - 0.03, HALL.z1 + 0.03]) {
+      let x0: number = HALL.x0;
+      const spans: [number, number][] = [];
+      if (z < HALL.z0) { for (const d of DOORS) { if (y > 4.6) continue; spans.push([x0, d.x - d.width / 2]); x0 = d.x + d.width / 2; } }
+      spans.push([x0, HALL.x1]);
+      for (const [a, b] of spans) joints.push({ p: [(a + b) / 2, y, z], s: [b - a, 0.06, 0.06] });
+    }
+    for (const x of [HALL.x0 - 0.03, HALL.x1 + 0.03]) joints.push({ p: [x, y, (HALL.z0 + HALL.z1) / 2], s: [0.06, 0.06, HALL.z1 - HALL.z0] });
+  }
+  sheetMeshes.push(instanced(scene, 'panel-joints', jointMat, joints));
+  // Antracit opšav: rub krova i okviri vrata.
+  for (const z of [HALL.z0, HALL.z1]) sheetMeshes.push(sheetBox([HALL.x1 - HALL.x0 + 0.4, 0.45, 0.22], [(HALL.x0 + HALL.x1) / 2, H - 0.2, z], trimMat));
+  for (const x of [HALL.x0, HALL.x1]) sheetMeshes.push(sheetBox([0.22, 0.45, HALL.z1 - HALL.z0 + 0.4], [x, H - 0.2, (HALL.z0 + HALL.z1) / 2], trimMat));
+  for (const d of DOORS) for (const sx of [-1, 1]) sheetMeshes.push(sheetBox([0.22, 4.6, 0.3], [d.x + sx * (d.width / 2 + 0.11), 2.3, HALL.z0], trimMat));
   const frameMesh = instanced(scene, 'hall-frames', mats.steel, frames);
   shadow.addShadowCaster(frameMesh);
+  function setHall(opacity: number, roof: boolean) {
+    const a = Math.max(0, Math.min(1, opacity));
+    const solid = a >= 0.98;
+    for (const mat of [wallMat, roofMat, gableMat]) { mat.alpha = solid ? 1 : a; mat.backFaceCulling = solid; }
+    for (const mat of [wallMat, roofMat]) mat.useAlphaFromDiffuseTexture = !solid;
+    trimMat.alpha = solid ? 1 : Math.min(1, a * 2.4);
+    jointMat.alpha = solid ? 1 : Math.min(0.9, a * 2.2);
+    for (const mesh of sheetMeshes) mesh.setEnabled(a > 0.02);
+    for (const mesh of roofMeshes) mesh.setEnabled(roof && a > 0.02);
+  }
+  setHall(0.45, false);
   for (const d of DOORS) {
     box(scene, 'door-header', [d.width + 0.3, 0.6, 0.35], [d.x, 4.85, HALL.z0], mats.steel);
     for (const s of [-1, 1]) cylinder(scene, 'bollard', 1.1, 0.22, [d.x + s * (d.width / 2 + 0.35), 0.55, HALL.z0 - 0.45], mats.protector, undefined, 12);
@@ -316,7 +384,7 @@ export function createWarehouseScene(canvas: HTMLCanvasElement, sim: Simulation)
   }
 
   return {
-    update, focus,
+    update, focus, setHall,
     render: () => { if (!disposed) scene.render(); },
     resize: () => engine.resize(),
     dispose: () => { disposed = true; for (const tv of trucks.values()) tv.dispose(); scene.dispose(); engine.dispose(); },

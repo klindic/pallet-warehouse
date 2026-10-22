@@ -86,8 +86,11 @@ function axisDays(h: DayRecord[], x: (i: number) => number, height: number) {
   return out.join('');
 }
 
+// SVG se crta u stvarnoj širini spremnika da tekst ostane čitljiv i na mobitelu.
+const widthOf = (id: string) => Math.max(260, Math.round($(id).clientWidth || 560));
+
 function drawDaily(sim: Simulation) {
-  const h = sim.history, w = 560, height = 170, left = 44, right = 10, top = 10, bottom = 24;
+  const h = sim.history, w = widthOf('chart-daily'), height = w < 420 ? 150 : 170, left = 46, right = 10, top = 10, bottom = 24;
   const cap = sim.capacity * sim.config.pricePerPalletDay;
   const costDay = sim.config.monthlyCosts * 12 / 365;
   const maxRev = Math.max(cap, costDay, ...h.map(d => d.revenue)) * 1.08;
@@ -104,7 +107,7 @@ function drawDaily(sim: Simulation) {
 }
 
 function drawCumulative(sim: Simulation) {
-  const h = sim.history, w = 560, height = 170, left = 56, right = 10, top = 10, bottom = 24;
+  const h = sim.history, w = widthOf('chart-cum'), height = w < 420 ? 150 : 170, left = 56, right = 10, top = 10, bottom = 24;
   const maxV = Math.max(1000, ...h.map(d => Math.max(d.cumRevenue, d.cumCost))) * 1.08;
   const n = Math.max(h.length, 30);
   const x = (i: number) => left + (i / Math.max(1, n - 1)) * (w - left - right);
@@ -152,7 +155,7 @@ export function renderSchedule(sim: Simulation) {
   const t0 = day * DAY + (sim.config.workStartHour - 0.5) * 3600;
   let t1 = sim.workEnd(Math.max(0, day)) + 1800;
   for (const a of apps) { t1 = Math.max(t1, a.estEnd + 900); const tr = byId.get(a.truckId); if (tr?.leftAt) t1 = Math.max(t1, tr.leftAt + 600); }
-  const w = 560, rowH = 15, left = 74, right = 8, top = 18;
+  const w = widthOf('gantt'), rowH = 17, left = 82, right = 8, top = 18;
   const height = top + Math.max(1, apps.length) * rowH + 8;
   const x = (t: number) => left + (Math.min(Math.max(t, t0), t1) - t0) / (t1 - t0) * (w - left - right);
   const hours: string[] = [];
@@ -168,7 +171,7 @@ export function renderSchedule(sim: Simulation) {
   $('gantt').innerHTML = apps.length ? `<svg viewBox="0 0 ${w} ${height}" role="img" aria-label="Raspored termina danas">${hours.join('')}${rows}${now}</svg>` : '<p class="empty">Danas nema dogovorenih dovoza ni odvoza. Na početku posla to je normalno.</p>';
   $('appointments').innerHTML = apps.map(a => {
     const tr = byId.get(a.truckId), st = truckStatus(sim, tr, a.planned), c = CLIENTS[a.client];
-    return `<tr><td class="mono">${clockLabel(a.planned)}</td><td><span class="kind ${a.kind}">${a.kind === 'in' ? 'Istovar' : 'Utovar'}</span> #${a.truckId}</td><td><span class="swatch" style="--c:${c.color}"></span>${c.code} · ${esc(c.name)}</td><td class="num">${a.pallets}</td><td><span class="state ${st.tone}">${esc(st.text)}</span></td></tr>`;
+    return `<tr><td class="mono">${clockLabel(a.planned)}</td><td><span class="kind ${a.kind}">${a.kind === 'in' ? 'Istovar' : 'Utovar'}</span> #${a.truckId}</td><td><span class="swatch" style="--c:${c.color}"></span>${c.code}<span class="client-name"> · ${esc(c.name)}</span></td><td class="num">${a.pallets}</td><td><span class="state ${st.tone}">${esc(st.text)}</span></td></tr>`;
   }).join('') || '<tr><td colspan="5" class="empty">Nema termina.</td></tr>';
   $('log').innerHTML = sim.log.slice(-8).reverse().map(l => `<li class="${l.tone}"><span class="mono">${dateLabel(Math.floor(l.time / DAY), false).slice(0, -6)} ${clockLabel(l.time)}</span>${esc(l.text)}</li>`).join('');
 }
