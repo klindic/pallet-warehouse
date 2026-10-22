@@ -18,6 +18,7 @@ const num = (id: string, value: number, min: number, max: number, step: number) 
   `<input id="${id}" type="number" inputmode="decimal" min="${min}" max="${max}" step="${step}" value="${value}" required/>`;
 
 export const DEFAULT_SPEED = 2;
+const price = (v: number) => `${v.toLocaleString('hr-HR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 
 export function mountUI(root: HTMLElement) {
   const d = DEFAULT_CONFIG;
@@ -48,7 +49,7 @@ export function mountUI(root: HTMLElement) {
         <div class="hud">
           <div class="hud-card time"><span class="hud-label" id="hud-date">pon, 4. 1. 2027.</span><strong id="hud-clock">06:30</strong><span class="hud-sub" id="hud-workday">1. radni dan</span></div>
           <div class="hud-card stock"><span class="hud-label">Popunjeno</span><strong><span id="hud-stock">0</span><small> / <span id="hud-capacity">720</span></small></strong><span class="meter"><i id="hud-meter"></i></span><span class="hud-sub" id="hud-pct">0 %</span></div>
-          <div class="hud-card money"><span class="hud-label">Danas zarađuje</span><strong id="hud-today">0 €</strong><span class="hud-sub" id="hud-rate">1,00 € × paleta</span></div>
+          <div class="hud-card money"><span class="hud-label">Danas zarađuje</span><strong id="hud-today">0 €</strong><span class="hud-sub" id="hud-rate">${price(d.pricePerPalletDay)} × paleta</span></div>
         </div>
         <div class="deck">
           <div class="transport" role="group" aria-label="Vrijeme simulacije">
@@ -76,7 +77,7 @@ export function mountUI(root: HTMLElement) {
       </section>
 
       <article class="card earnings area-earn" aria-labelledby="earn-title">
-        <div class="card-heading"><div><span class="eyebrow">Zarada</span><h2 id="earn-title">Koliko donosi popunjenost</h2></div><div class="earn-actions"><span class="price-chip" id="price-chip">1,00 € / paleta / dan</span><button id="export" class="button ghost">${icons.export}<span>CSV po danima</span></button></div></div>
+        <div class="card-heading"><div><span class="eyebrow">Zarada</span><h2 id="earn-title">Koliko donosi popunjenost</h2></div><div class="earn-actions"><span class="price-chip" id="price-chip">${price(d.pricePerPalletDay)} / paleta / dan</span><button id="export" class="button ghost">${icons.export}<span>CSV po danima</span></button></div></div>
         <div class="tiles">
           <div class="tile"><span>Danas</span><strong id="k-today">0 €</strong><small id="k-today-sub">0 paleta na skladištu</small></div>
           <div class="tile"><span id="k-month-label">Ovaj mjesec</span><strong id="k-month">0 €</strong><small id="k-month-sub">—</small></div>

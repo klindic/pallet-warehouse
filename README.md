@@ -35,11 +35,11 @@ Radi se 8 h dnevno, od ponedjeljka do petka. Noći i vikendi se preskaču.
 
 ## Zarada
 
-Svake ponoći naplaćuje se **broj paleta na skladištu × cijena po paleti po danu** (zadano 1 €), i to za svaki kalendarski dan, pa i vikendom. Po želji se dodaje i naknada za manipulaciju po paleti na ulazu i izlazu. Mjesečni troškovi (zadano 12.000 €: rata kredita, plaće za tri ortaka, struja i leasing viličara) raspoređuju se po danima.
+Svake ponoći naplaćuje se **broj paleta na skladištu × cijena po paleti po danu** (zadano 0,50 €), i to za svaki kalendarski dan, pa i vikendom. Po želji se dodaje i naknada za manipulaciju po paleti na ulazu i izlazu. Mjesečni troškovi (zadano 12.000 €: rata kredita, plaće za tri ortaka, struja i leasing viličara) raspoređuju se po danima.
 
 Ploča **Zarada** prikazuje današnji prihod, prihod ovog mjeseca, ukupni prihod i ono što ostane nakon troškova. Tu je i projekcija iz zadnjih 30 dana i dan od kojeg je prihod pokrio troškove. **CSV po danima** izvozi sve dnevne brojke.
 
-Uz zadane postavke posao se razvija ovako: u prvom mjesecu skladište je oko 12 % puno, nakon 3–4 mjeseca 85–95 %. Na punom skladištu prihod je oko 19–21 tisuću € mjesečno. Viličar je tada zauzet oko 40 % radnog vremena, pa je usko grlo broj mjesta, a ne viličar.
+Uz zadane postavke posao se razvija ovako: u prvom mjesecu skladište je oko 12 % puno, nakon 3–4 mjeseca 85–95 %. Na punom skladištu prihod od samog skladištenja (0,50 € po paleti dnevno) je oko 10.400 € mjesečno, što ne pokriva 12.000 € troškova. Prva godina tada završava s oko 47.000 € minusa. Uz naknadu za manipulaciju od 2 € po paleti na ulazu i izlazu prihod raste na oko 17.300 € mjesečno, a prva godina završava s oko 18.000 € plusa. Viličar je na punom skladištu zauzet oko 40 % radnog vremena, pa je usko grlo broj mjesta, a ne viličar.
 
 ## Pretpostavke i pojednostavljenja
 
