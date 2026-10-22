@@ -72,7 +72,8 @@ function instanced(scene: Scene, name: string, mat: StandardMaterial, parts: { p
 
 export function createWarehouseScene(canvas: HTMLCanvasElement, sim: Simulation): WarehouseScene {
   const engine = new Engine(canvas, true, { stencil: false, preserveDrawingBuffer: false }, true);
-  engine.setHardwareScalingLevel(Math.max(1, window.devicePixelRatio / 1.5));
+  // Crta se u gustoći ekrana (mobitel 2–3×), najviše 2×, da slika bude oštra, a GPU ne crta 9× više piksela.
+  engine.setHardwareScalingLevel(1 / Math.min(Math.max(1, window.devicePixelRatio || 1), 2));
   const scene = new Scene(engine);
   scene.clearColor = Color4.FromHexString('#dfe6e4ff');
   scene.ambientColor = new Color3(0.3, 0.32, 0.32);
