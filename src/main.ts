@@ -74,6 +74,13 @@ el('speed').addEventListener('input', () => { speedIndex = Number(el<HTMLInputEl
 el('play').addEventListener('click', () => { playing = !playing; lastFrame = performance.now(); updatePlayback(); });
 el('reset').addEventListener('click', () => { restart(config); toast('Ispočetka, s istim postavkama i istim tijekom posla.'); });
 el('next-day').addEventListener('click', () => { sim.skipToNextDay(); scene?.update(sim, 999); renderAll(); toast('Preskočeno na sljedeći radni dan.'); });
+el('next-month').addEventListener('click', () => {
+  const target = sim.day + 30;
+  let guard = 0;
+  while (sim.day < target && guard++ < 60) sim.skipToNextDay();
+  scene?.update(sim, 999); renderAll();
+  toast(`Preskočeno mjesec dana. Popunjenost: ${Math.round(sim.stock / sim.capacity * 100)} %.`);
+});
 el('export').addEventListener('click', () => { if (!sim.history.length) { toast('CSV ima podatke nakon prvog odrađenog dana.'); return; } exportCSV(sim); toast('CSV s prihodom i prometom po danima je spreman.'); });
 document.querySelectorAll<HTMLButtonElement>('[data-camera]').forEach(button => button.addEventListener('click', () => {
   camera = button.dataset.camera as CameraView;

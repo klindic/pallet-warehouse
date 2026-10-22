@@ -5,6 +5,7 @@ export const icons = {
   pause: '<svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" stroke-width="3.4"/></svg>',
   reset: '<svg viewBox="0 0 24 24"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6"/></svg>',
   next: '<svg viewBox="0 0 24 24"><path d="m5 5 9 7-9 7ZM18 5v14" /></svg>',
+  month: '<svg viewBox="0 0 24 24"><path d="m3 5 8 7-8 7Zm9 0 8 7-8 7Z" /></svg>',
   export: '<svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg>',
   expand: '<svg viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg>',
 };
@@ -37,6 +38,7 @@ export function mountUI(root: HTMLElement) {
           <div class="playback">
             <button id="play" class="button primary">${icons.pause}<span>Pauziraj</span></button>
             <button id="next-day" class="button square" title="Preskoči na sljedeći radni dan" aria-label="Preskoči na sljedeći radni dan">${icons.next}</button>
+            <button id="next-month" class="button square" title="Preskoči mjesec dana" aria-label="Preskoči mjesec dana">${icons.month}</button>
             <button id="reset" class="button square" title="Kreni ispočetka s istim postavkama" aria-label="Kreni ispočetka">${icons.reset}</button>
           </div>
           <p class="field-help">Radi se ${d.workHours} h dnevno, od ${d.workStartHour}:00. Noći i vikendi se preskaču, a skladištenje se naplaćuje svaki kalendarski dan.</p>
