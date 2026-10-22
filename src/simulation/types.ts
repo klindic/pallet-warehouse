@@ -2,22 +2,25 @@ export interface Vec2 { x: number; z: number }
 
 export type DemandPreset = 'slow' | 'normal' | 'fast';
 export type TruckKind = 'in' | 'out';
-export type TruckState = 'scheduled' | 'queue' | 'entering' | 'prep' | 'service' | 'closing' | 'leaving' | 'gone';
+// Šleper: najavljen → na ulici → na parkingu (ako čeka red) → rampa (priprema, rad, papiri) → odlazi.
+export type TruckState = 'scheduled' | 'street' | 'toStall' | 'parked' | 'toBay' | 'prep' | 'service' | 'toClose' | 'closing' | 'leaving' | 'gone' | 'noshow';
 
 export interface SimulationConfig {
   seed: number;
   rackLevels: number;          // razine regala (3–5)
   forklifts: number;           // broj viličara (1–2)
   pricePerPalletDay: number;   // € po paleti po kalendarskom danu
-  handlingFee: number;         // € po paleti na ulazu i na izlazu
-  monthlyCosts: number;        // € mjesečno (kredit, plaće, struja, leasing…)
+  handlingFee: number;         // € po paleti na ulazu i na izlazu (manipulacija)
+  monthlyCosts: number;        // € mjesečno (plaća skladištara, leasing, ostalo)
   rampDays: number;            // radnih dana do pune potražnje
-  startDemand: number;         // prosječno kamiona za istovar po radnom danu na početku
-  peakDemand: number;          // prosječno kamiona za istovar po radnom danu kad posao procvjeta
+  startDemand: number;         // prosječno šlepera za istovar po radnom danu na početku
+  peakDemand: number;          // prosječno šlepera za istovar po radnom danu kad posao procvjeta
   palletsMin: number; palletsMax: number;
   dwellMin: number; dwellMax: number;  // kalendarski dani skladištenja
   workStartHour: number; workHours: number; workdaysPerWeek: number;
-  lateChance: number;          // udio kamiona koji kasne 25–75 min
+  earlyChance: number;         // udio šlepera koji dođu 30–150 min ranije
+  lateChance: number;          // udio šlepera koji kasne 20–90 min
+  noShowChance: number;        // udio šlepera koji ne dođu
 }
 
 export type PalletLoc =
@@ -27,7 +30,8 @@ export type PalletLoc =
   | { kind: 'staging'; spot: StagingSpot }
   | { kind: 'gone' };
 
-export interface Pallet { id: number; shipmentId: number; client: number; height: number; tint: number; loc: PalletLoc; claimed: boolean }
+/** prepicked: paleta je unaprijed izvučena iz regala na pod uz vrata za šleper koji dolazi po nju. */
+export interface Pallet { id: number; shipmentId: number; client: number; height: number; tint: number; loc: PalletLoc; claimed: boolean; prepicked: boolean }
 
 export interface Row { index: number; x0: number; x1: number; face: number; into: 1 | -1; aisle: number }
 export interface Aisle { index: number; x0: number; x1: number; cx: number }
@@ -45,13 +49,19 @@ export interface Shipment {
   inTruck: number; outTruck: number;
 }
 
+export type Punctuality = 'early' | 'ontime' | 'late' | 'noshow';
+
 export interface Truck {
   id: number; kind: TruckKind; shipmentId: number; client: number; pallets: number;
-  planned: number; arrival: number; state: TruckState; bay: number;
+  planned: number; arrival: number; punctuality: Punctuality; state: TruckState; stall: number;
   x: number; z: number; heading: number; speed: number;
   pathPts: Vec2[] | null; pathCum: number[] | null; pathLen: number; s: number; releaseAt: number;
   timer: number; trailer: (Pallet | null)[]; claimed: boolean[]; pending: number; loaded: number;
-  queuedAt: number; enteredAt: number; atBayAt: number; serviceAt: number; leftAt: number;
+  arrivedAt: number; calledAt: number; atBayAt: number; serviceAt: number; leftAt: number; servedEarly: boolean;
+  /** cerada otvorena (na parkingu dok čeka) i zatvara li se u zoni kod izlaza umjesto na rampi */
+  opened: boolean; atZone: boolean;
+  /** papiri sa skladištarom: 0 čeka, 1 u tijeku, 2 potpisano */
+  papers: number;
   color: number; curtain: number;
 }
 
@@ -67,10 +77,14 @@ export type Place =
   | { kind: 'staging'; spot: StagingSpot }
   | { kind: 'park'; index: number };
 
+export type TaskKind = 'unload' | 'load' | 'putaway' | 'prepick' | 'papers' | 'park' | 'idle' | 'break';
+
 export interface Forklift {
   id: number; x: number; z: number; heading: number; forkH: number;
   carrying: Pallet | null; actions: ForkAction[]; place: Place; atFace: boolean;
-  task: string; taskStart: number; idleSince: number; busyToday: number; busyTotal: number;
+  task: string; taskKind: TaskKind; taskStart: number; idleSince: number;
+  breakUntil: number; workedSinceBreak: number; lunchDay: number;
+  busyToday: number; busyTotal: number;
 }
 
 export interface Appointment { truckId: number; kind: TruckKind; client: number; pallets: number; planned: number; estEnd: number }
@@ -80,6 +94,7 @@ export interface LogEntry { time: number; text: string; tone: 'in' | 'out' | 'wa
 export interface DayStats {
   trucksIn: number; trucksOut: number; palletsIn: number; palletsOut: number; handling: number;
   requests: number; rejected: number; lost: number; busy: number; overtime: number; demand: number;
+  early: number; late: number; noShows: number; servedEarly: number; parkingWait: number; breaks: number;
 }
 
 export interface DayRecord extends DayStats {
@@ -93,4 +108,5 @@ export interface Totals {
   requests: number; rejected: number; rejectedSpace: number; rejectedTime: number; lost: number;
   overtime: number; siteTime: number; waitTime: number; trucksDone: number;
   busy: number; workSeconds: number; cycleTime: number; cycles: number; workdays: number;
+  early: number; late: number; noShows: number; servedEarly: number; breaks: number;
 }

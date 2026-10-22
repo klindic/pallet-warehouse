@@ -167,6 +167,7 @@ figcaption { display: flex; justify-content: space-between; gap: 8px; flex-wrap:
 .gantt .slot.in { fill: color-mix(in srgb, var(--in) 14%, transparent); stroke: color-mix(in srgb, var(--in) 55%, transparent); stroke-width: 1; }
 .gantt .slot.out { fill: color-mix(in srgb, var(--out) 14%, transparent); stroke: color-mix(in srgb, var(--out) 55%, transparent); stroke-width: 1; }
 .gantt .bar.in { fill: var(--in); } .gantt .bar.out { fill: var(--out); }
+.gantt .bar.wait { fill: color-mix(in srgb, var(--muted) 30%, transparent); }
 .gantt .now { stroke: var(--bad); stroke-width: 1.5; }
 .gantt .row-label { fill: var(--muted); }
 .empty { color: var(--muted); font-size: 13px; margin: 6px 0 12px; }

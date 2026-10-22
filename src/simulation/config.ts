@@ -1,14 +1,15 @@
 import type { DemandPreset, SimulationConfig } from './types';
 
 // Mjesečni troškovi bez rate kredita: plaća je samo za skladištara (1.600 € neto u Sisku, stopa poreza 21,6 %).
-export const COSTS = { wage: 2730, leasing: 700, other: 900 } as const;
+// Ostalo za halu od 1.620 m²: struja, osiguranje robe, komunalna naknada, knjigovođa, održavanje, otpad, alarm.
+export const COSTS = { wage: 2730, leasing: 700, other: 1300 } as const;
 
 export const DEFAULT_CONFIG: SimulationConfig = {
   seed: 2027, rackLevels: 4, forklifts: 1,
-  pricePerPalletDay: 0.5, handlingFee: 0, monthlyCosts: COSTS.wage + COSTS.leasing + COSTS.other,
-  rampDays: 120, startDemand: 0.5, peakDemand: 4.2,
-  palletsMin: 16, palletsMax: 32, dwellMin: 2, dwellMax: 20,
-  workStartHour: 7, workHours: 8, workdaysPerWeek: 5, lateChance: 0.12,
+  pricePerPalletDay: 0.5, handlingFee: 2, monthlyCosts: COSTS.wage + COSTS.leasing + COSTS.other,
+  rampDays: 120, startDemand: 0.8, peakDemand: 10,
+  palletsMin: 16, palletsMax: 32, dwellMin: 5, dwellMax: 30,
+  workStartHour: 7, workHours: 8, workdaysPerWeek: 5, earlyChance: 0.15, lateChance: 0.12, noShowChance: 0.03,
 };
 
 export const DEMAND: Record<DemandPreset, { label: string; days: number }> = {
@@ -33,12 +34,18 @@ export const CLIENT_WEIGHTS = [0.19, 0.16, 0.14, 0.1, 0.11, 0.09, 0.11, 0.1] as 
 // Vremena su procjene za protuteži viličar i bočni istovar šlepera s ceradom.
 export const TIMING = {
   prep: 240,          // otvaranje cerade, papiri
-  close: 180,         // zatvaranje cerade, CMR i potpis
+  close: 180,         // zatvaranje cerade
+  papers: 180,        // skladištar s vozačem: otpremnica, CMR, potpis i pečat
   pick: 7, place: 7,  // fino pozicioniranje vilica
+  check: 20,          // na šleperu: skeniranje naljepnice, brojanje i pregled oštećenja
   turn: 3.5, corner: 0.8,
   speedEmpty: 2.6, speedLoaded: 2.0, lift: 0.45,
   truckYard: 3.2, truckStreet: 9, truckAccel: 0.9,
-  entryEstimate: 75,
+  pretomorrow: 5400,  // zadnjih 90 min dana viličar priprema robu za jutarnje odvoze
+  maneuver: 90,       // vožnja s parkinga ili s ulaza do rampe
+  bayBuffer: 60,      // rezerva u terminu za rampu
+  lunch: 1800, lunchAfter: 4 * 3600, lunchLatest: 5.5 * 3600, // gablec 30 min između dva šlepera nakon 11:00 (najkasnije u 12:30)
+  shortBreak: 300, breakAfter: 2 * 3600, breakForce: 2.5 * 3600, // 5 min pauze nakon ~2 h rada
 } as const;
 
 // Brzina = sekunde simulacije po sekundi stvarnog vremena; noći i vikendi se preskaču.

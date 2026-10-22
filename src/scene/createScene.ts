@@ -18,14 +18,14 @@ import '@babylonjs/core/Meshes/thinInstanceMesh';
 import { Scene } from '@babylonjs/core/scene';
 import { CLIENTS } from '../simulation/config';
 import type { Simulation } from '../simulation/engine';
-import { CHARGING, DOORS, ENTRY_GATE, EXIT_GATE, HALL, OFFICE, PALLET, PARCEL, RACK, TRUCK, trailerLocal } from '../simulation/layout';
+import { CHARGING, DOOR, ENTRY_GATE, EXIT_GATE, HALL, OFFICE, PALLET, PARCEL, PARKING, RACK, TRUCK, trailerLocal } from '../simulation/layout';
 import { angleDelta } from '../simulation/path';
 import type { Pallet } from '../simulation/types';
 import { box, cylinder, material, yaw } from './geometry';
 import { createForklift, createTruck, sharedMaterials, type ForkliftView, type TruckView } from './models';
 import { PLAN_BOUNDS, PLAN_SCALE, drawPlan } from './planTexture';
 
-export type CameraView = 'overview' | 'hall' | 'yard' | 'forklift' | 'plan';
+export type CameraView = 'overview' | 'hall' | 'bay' | 'parking' | 'forklift' | 'plan';
 export interface WarehouseScene {
   update(sim: Simulation, simDt: number): void;
   /** Prozirnost limenih zidova (0–1) i je li krov vidljiv. */
@@ -37,12 +37,13 @@ export interface WarehouseScene {
 }
 
 const VIEWS: Record<Exclude<CameraView, 'forklift'>, { alpha: number; beta: number; radius: number; target: [number, number, number] }> = {
-  overview: { alpha: -Math.PI / 2 - 0.42, beta: 0.96, radius: 74, target: [25, 0, 17] },
-  hall: { alpha: -Math.PI / 2 + 0.32, beta: 0.74, radius: 42, target: [25, 2, 29] },
-  yard: { alpha: 0.15, beta: 1.08, radius: 32, target: [21, 1, 12] },
-  plan: { alpha: -Math.PI / 2, beta: 0.001, radius: 92, target: [25, 0, 17] },
+  overview: { alpha: -Math.PI / 2 - 0.42, beta: 0.96, radius: 106, target: [46, 0, 24] },
+  hall: { alpha: -Math.PI / 2 + 0.3, beta: 0.72, radius: 58, target: [35, 2, 43] },
+  bay: { alpha: -Math.PI / 2 - 0.55, beta: 1.0, radius: 36, target: [29, 1, 24] },
+  parking: { alpha: -0.35, beta: 0.98, radius: 46, target: [75, 1, 38] },
+  plan: { alpha: -Math.PI / 2, beta: 0.001, radius: 108, target: [45, 0, 27] },
 };
-const MAX_PALLETS = 1600;
+const MAX_PALLETS = 2100;
 
 /** Dvostrešni krov kao prizma: sljeme ide po osi z. */
 function gableRoof(scene: Scene, w: number, d: number, h: number) {
@@ -81,18 +82,18 @@ export function createWarehouseScene(canvas: HTMLCanvasElement, sim: Simulation)
 
   const camera = new ArcRotateCamera('camera', VIEWS.overview.alpha, VIEWS.overview.beta, VIEWS.overview.radius, new Vector3(...VIEWS.overview.target), scene);
   camera.attachControl(canvas, true);
-  camera.lowerRadiusLimit = 6; camera.upperRadiusLimit = 170; camera.upperBetaLimit = 1.42; camera.lowerBetaLimit = 0.001;
-  camera.wheelPrecision = 9; camera.pinchPrecision = 30; camera.panningSensibility = 40; camera.minZ = 0.3; camera.maxZ = 600;
+  camera.lowerRadiusLimit = 6; camera.upperRadiusLimit = 240; camera.upperBetaLimit = 1.42; camera.lowerBetaLimit = 0.001;
+  camera.wheelPrecision = 9; camera.pinchPrecision = 30; camera.panningSensibility = 40; camera.minZ = 0.3; camera.maxZ = 900;
   camera.inertia = 0.82;
 
   const sky = new HemisphericLight('sky', new Vector3(0, 1, 0), scene);
   sky.intensity = 0.62; sky.groundColor = Color3.FromHexString('#8c9a8f');
   const sun = new DirectionalLight('sun', new Vector3(-0.42, -1, 0.5).normalize(), scene);
   sun.intensity = 0.95;
-  sun.position = new Vector3(25, 0, 18).subtract(sun.direction.scale(110));
+  sun.position = new Vector3(45, 0, 27).subtract(sun.direction.scale(140));
   sun.autoUpdateExtends = false; sun.autoCalcShadowZBounds = false;
-  sun.orthoLeft = -52; sun.orthoRight = 52; sun.orthoTop = 48; sun.orthoBottom = -48; sun.shadowMinZ = 20; sun.shadowMaxZ = 220;
-  const shadow = new ShadowGenerator(2048, sun);
+  sun.orthoLeft = -72; sun.orthoRight = 72; sun.orthoTop = 62; sun.orthoBottom = -62; sun.shadowMinZ = 30; sun.shadowMaxZ = 280;
+  const shadow = new ShadowGenerator(4096, sun);
   shadow.usePercentageCloserFiltering = true; shadow.filteringQuality = ShadowGenerator.QUALITY_MEDIUM; shadow.darkness = 0.42; shadow.bias = 0.0008;
 
   const m = sharedMaterials(scene);
@@ -106,8 +107,8 @@ export function createWarehouseScene(canvas: HTMLCanvasElement, sim: Simulation)
   mats.roof.backFaceCulling = false;
 
   // Tlo i tlocrt parcele.
-  const outer = CreateGround('outer-ground', { width: 420, height: 420 }, scene);
-  outer.position.set(25, -0.03, 18); outer.material = mats.grass; outer.receiveShadows = true; outer.isPickable = false;
+  const outer = CreateGround('outer-ground', { width: 560, height: 560 }, scene);
+  outer.position.set(45, -0.03, 27); outer.material = mats.grass; outer.receiveShadows = true; outer.isPickable = false;
   const B = PLAN_BOUNDS;
   const planTex = new DynamicTexture('plan', { width: (B.x1 - B.x0) * PLAN_SCALE, height: (B.z1 - B.z0) * PLAN_SCALE }, scene, true);
   planTex.anisotropicFilteringLevel = 8;
@@ -171,9 +172,8 @@ export function createWarehouseScene(canvas: HTMLCanvasElement, sim: Simulation)
     if (y1 > plinth) sheetMeshes.push(sheetBox([sx, y1 - Math.max(plinth, y0), sz], [(x0 + x1) / 2, (Math.max(plinth, y0) + y1) / 2, (z0 + z1) / 2], wallMat));
   };
   wall(HALL.x0, HALL.z1, HALL.x1, HALL.z1); wall(HALL.x0, HALL.z0, HALL.x0, HALL.z1); wall(HALL.x1, HALL.z0, HALL.x1, HALL.z1);
-  let cursor: number = HALL.x0;
-  for (const d of DOORS) { wall(cursor, HALL.z0, d.x - d.width / 2, HALL.z0); wall(d.x - d.width / 2, HALL.z0, d.x + d.width / 2, HALL.z0, 4.6, H); cursor = d.x + d.width / 2; }
-  wall(cursor, HALL.z0, HALL.x1, HALL.z0);
+  const door0 = DOOR.x - DOOR.width / 2, door1 = DOOR.x + DOOR.width / 2;
+  wall(HALL.x0, HALL.z0, door0, HALL.z0); wall(door0, HALL.z0, door1, HALL.z0, 4.6, H); wall(door1, HALL.z0, HALL.x1, HALL.z0);
   instanced(scene, 'hall-plinth', mats.concrete, wallParts).receiveShadows = true;
   const halfSpan = (HALL.z1 - HALL.z0) / 2, slope = Math.atan2(ridge, halfSpan);
   for (const side of [-1, 1]) {
@@ -200,7 +200,7 @@ export function createWarehouseScene(canvas: HTMLCanvasElement, sim: Simulation)
     for (const z of [HALL.z0 - 0.03, HALL.z1 + 0.03]) {
       let x0: number = HALL.x0;
       const spans: [number, number][] = [];
-      if (z < HALL.z0) { for (const d of DOORS) { if (y > 4.6) continue; spans.push([x0, d.x - d.width / 2]); x0 = d.x + d.width / 2; } }
+      if (z < HALL.z0 && y <= 4.6) { spans.push([x0, door0]); x0 = door1; }
       spans.push([x0, HALL.x1]);
       for (const [a, b] of spans) joints.push({ p: [(a + b) / 2, y, z], s: [b - a, 0.06, 0.06] });
     }
@@ -210,7 +210,7 @@ export function createWarehouseScene(canvas: HTMLCanvasElement, sim: Simulation)
   // Antracit opšav: rub krova i okviri vrata.
   for (const z of [HALL.z0, HALL.z1]) sheetMeshes.push(sheetBox([HALL.x1 - HALL.x0 + 0.4, 0.45, 0.22], [(HALL.x0 + HALL.x1) / 2, H - 0.2, z], trimMat));
   for (const x of [HALL.x0, HALL.x1]) sheetMeshes.push(sheetBox([0.22, 0.45, HALL.z1 - HALL.z0 + 0.4], [x, H - 0.2, (HALL.z0 + HALL.z1) / 2], trimMat));
-  for (const d of DOORS) for (const sx of [-1, 1]) sheetMeshes.push(sheetBox([0.22, 4.6, 0.3], [d.x + sx * (d.width / 2 + 0.11), 2.3, HALL.z0], trimMat));
+  for (const sx of [-1, 1]) sheetMeshes.push(sheetBox([0.22, 4.6, 0.3], [DOOR.x + sx * (DOOR.width / 2 + 0.11), 2.3, HALL.z0], trimMat));
   const frameMesh = instanced(scene, 'hall-frames', mats.steel, frames);
   shadow.addShadowCaster(frameMesh);
   function setHall(opacity: number, roof: boolean) {
@@ -224,10 +224,8 @@ export function createWarehouseScene(canvas: HTMLCanvasElement, sim: Simulation)
     for (const mesh of roofMeshes) mesh.setEnabled(roof && a > 0.02);
   }
   setHall(0.45, false);
-  for (const d of DOORS) {
-    box(scene, 'door-header', [d.width + 0.3, 0.6, 0.35], [d.x, 4.85, HALL.z0], mats.steel);
-    for (const s of [-1, 1]) cylinder(scene, 'bollard', 1.1, 0.22, [d.x + s * (d.width / 2 + 0.35), 0.55, HALL.z0 - 0.45], mats.protector, undefined, 12);
-  }
+  box(scene, 'door-header', [DOOR.width + 0.3, 0.6, 0.35], [DOOR.x, 4.85, HALL.z0], mats.steel);
+  for (const s of [-1, 1]) cylinder(scene, 'bollard', 1.1, 0.22, [DOOR.x + s * (DOOR.width / 2 + 0.35), 0.55, HALL.z0 - 0.45], mats.protector, undefined, 12);
   // Natpis na pročelju.
   const signTex = new DynamicTexture('sign', { width: 1024, height: 128 }, scene, true);
   const paintSign = () => {
@@ -239,8 +237,24 @@ export function createWarehouseScene(canvas: HTMLCanvasElement, sim: Simulation)
   };
   paintSign(); document.fonts?.ready.then(() => { if (!scene.isDisposed) paintSign(); });
   const signMat = material(scene, 'sign', '#ffffff'); signMat.diffuseTexture = signTex; signMat.emissiveColor = new Color3(0.25, 0.25, 0.25);
-  const sign = CreatePlane('sign', { width: 12, height: 1.5 }, scene);
-  sign.position.set(28.1, H - 1.1, HALL.z0 - 0.2); sign.material = signMat;
+  const sign = CreatePlane('sign', { width: 14, height: 1.75 }, scene);
+  sign.position.set(DOOR.x, H - 1.2, HALL.z0 - 0.2); sign.material = signMat;
+
+  // Znak parkinga za šlepere koji čekaju termin.
+  const pTex = new DynamicTexture('parking-sign', { width: 128, height: 160 }, scene, true);
+  {
+    const c = pTex.getContext() as unknown as CanvasRenderingContext2D;
+    c.fillStyle = '#1f5fa8'; c.fillRect(0, 0, 128, 160); c.strokeStyle = '#ffffff'; c.lineWidth = 6; c.strokeRect(6, 6, 116, 148);
+    c.fillStyle = '#ffffff'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = '700 92px "Barlow Condensed", "Arial Narrow", sans-serif'; c.fillText('P', 64, 66);
+    c.font = '700 24px "Barlow Condensed", "Arial Narrow", sans-serif'; c.fillText('ČEKANJE', 64, 132);
+    pTex.update(true);
+  }
+  const pMat = material(scene, 'parking-sign', '#ffffff'); pMat.diffuseTexture = pTex; pMat.emissiveColor = new Color3(0.2, 0.2, 0.2); pMat.backFaceCulling = false;
+  const pX = PARKING.stalls[PARKING.stalls.length - 1] + PARKING.width / 2 + 1.2;
+  cylinder(scene, 'parking-post', 2.6, 0.08, [pX, 1.3, PARKING.cabZ - 0.6], m.steel, undefined, 8);
+  const pSign = CreatePlane('parking-sign', { width: 0.8, height: 1 }, scene);
+  pSign.position.set(pX, 2.9, PARKING.cabZ - 0.64); pSign.material = pMat;
 
   // Regali: plavi stupovi, narančaste grede, žuti štitnici na čelu reda.
   const uprights: typeof wallParts = [], beams: typeof wallParts = [], guards: typeof wallParts = [];
@@ -262,8 +276,10 @@ export function createWarehouseScene(canvas: HTMLCanvasElement, sim: Simulation)
   // Okolni kvart: obiteljske kuće i drveće (Zeleni brijeg je pretežito stambeni kraj).
   const trunks: typeof wallParts = [], crowns: { p: [number, number, number]; s: number }[] = [];
   const tree = (x: number, z: number, s = 1) => { trunks.push({ p: [x, 1.1 * s, z], s: [0.3 * s, 2.2 * s, 0.3 * s] }); crowns.push({ p: [x, 3.3 * s, z], s: 3.2 * s }); };
-  for (const z of [22, 28, 34]) { tree(2.4, z, 0.9); tree(47.6, z, 0.9); }
-  for (const [x, z, s] of [[-12, 8, 1.2], [-8, 30, 1.1], [62, 6, 1.3], [66, 26, 1], [14, 50, 1.2], [34, 52, 1.1], [56, 48, 1.3], [-14, 48, 1.2], [75, 40, 1], [-22, 20, 1.1]]) tree(x, z, s);
+  // Drvored u zelenom pojasu uz ulicu i uz zapadni rub parcele.
+  for (let x = 16; x <= 74; x += 7.25) { tree(x, 5, 0.95); tree(x + 3.6, 13, 0.85); }
+  for (const z of [34, 41, 48, 55]) tree(2.5, z, 0.85);
+  for (const [x, z, s] of [[-10, 12, 1.2], [-8, 44, 1.1], [100, 4, 1.3], [98, 26, 1], [12, 66, 1.2], [36, 64, 1.1], [64, 66, 1.3], [-14, 62, 1.2], [104, 48, 1], [-20, 26, 1.1], [86, 66, 1.1]]) tree(x, z, s);
   instanced(scene, 'trunks', mats.trunk, trunks);
   const crownMesh = CreateIcoSphere('crown', { radius: 0.5, subdivisions: 2 }, scene);
   crownMesh.material = mats.crown; crownMesh.isPickable = false;
@@ -271,7 +287,7 @@ export function createWarehouseScene(canvas: HTMLCanvasElement, sim: Simulation)
   crowns.forEach(({ p, s }, i) => cbuf.set([s, 0, 0, 0, 0, s * 0.9, 0, 0, 0, 0, s, 0, p[0], p[1], p[2], 1], i * 16));
   crownMesh.thinInstanceSetBuffer('matrix', cbuf, 16, true); crownMesh.thinInstanceRefreshBoundingInfo(false);
   shadow.addShadowCaster(crownMesh);
-  for (const [x, z, w, d] of [[-20, 6, 9, 11], [-21, 32, 10, 9], [67, 14, 9, 10], [68, 34, 10, 9], [6, 52, 10, 8], [44, 53, 9, 9]]) {
+  for (const [x, z, w, d] of [[-19, 6, 9, 11], [-20, 34, 10, 9], [-18, 56, 9, 9], [107, 14, 9, 10], [108, 38, 10, 9], [106, 60, 9, 9], [20, 69, 10, 8], [50, 70, 9, 9], [78, 69, 10, 8]]) {
     const house = box(scene, 'house', [w, 5.6, d], [x, 2.8, z], mats.house);
     const roof = gableRoof(scene, w + 0.8, d + 0.8, w * 0.32);
     roof.position.set(x, 5.6, z); roof.material = mats.roof;
@@ -323,7 +339,7 @@ export function createWarehouseScene(canvas: HTMLCanvasElement, sim: Simulation)
 
     const live = new Set<number>();
     for (const t of s.trucks) {
-      if (t.state === 'scheduled' || t.state === 'gone') continue;
+      if (t.state === 'scheduled' || t.state === 'gone' || t.state === 'noshow') continue;
       live.add(t.id);
       let tv = trucks.get(t.id);
       if (!tv) { tv = createTruck(scene, m, t.color, shadow); trucks.set(t.id, tv); }
@@ -337,7 +353,7 @@ export function createWarehouseScene(canvas: HTMLCanvasElement, sim: Simulation)
       else {
         dx = kx - tv.axle.x; dz = kz - tv.axle.z;
         const n = Math.hypot(dx, dz) || 1; dx /= n; dz /= n;
-        if (t.state === 'prep' || t.state === 'service' || t.state === 'closing' || t.state === 'queue') { dx += (fx - dx) * 0.2; dz += (fz - dz) * 0.2; const n2 = Math.hypot(dx, dz) || 1; dx /= n2; dz /= n2; }
+        if (t.state === 'prep' || t.state === 'service' || t.state === 'closing' || t.state === 'parked' || t.state === 'street') { dx += (fx - dx) * 0.2; dz += (fz - dz) * 0.2; const n2 = Math.hypot(dx, dz) || 1; dx /= n2; dz /= n2; }
       }
       tv.axle = { x: kx - dx * TRUCK.axle, z: kz - dz * TRUCK.axle };
       tv.trailer.position.set(kx, 0, kz);
@@ -374,7 +390,7 @@ export function createWarehouseScene(canvas: HTMLCanvasElement, sim: Simulation)
     view = next;
     if (next === 'forklift') {
       const f = sim.forklifts[0];
-      camera.setTarget(new Vector3(f?.x ?? 25, 1.4, f?.z ?? 25), false, false, true);
+      camera.setTarget(new Vector3(f?.x ?? DOOR.x, 1.4, f?.z ?? 40), false, false, true);
       camera.alpha = -Math.PI / 2 + 0.25; camera.beta = 0.62; camera.radius = 19 * fit();
       return;
     }

@@ -3,6 +3,7 @@ import { exportCSV, renderEarnings, renderHud, renderOps, renderSchedule, render
 import { createWarehouseScene, type CameraView, type WarehouseScene } from './scene/createScene';
 import { DEFAULT_CONFIG, DEMAND, SPEEDS } from './simulation/config';
 import { Simulation } from './simulation/engine';
+import { PARKING } from './simulation/layout';
 import type { DemandPreset, SimulationConfig } from './simulation/types';
 import { DEFAULT_SPEED, icons, mountUI } from './ui';
 
@@ -53,11 +54,12 @@ function readConfig(): SimulationConfig | null {
   return {
     ...config, seed: v('seed'), pricePerPalletDay: v('price'), peakDemand: v('peak'), palletsMin: pmin, palletsMax: Math.min(32, pmax),
     dwellMin: dmin, dwellMax: dmax, rackLevels: v('levels'), forklifts: v('forklifts'), monthlyCosts: v('wage') + v('leasing') + v('other'), handlingFee: v('handling'),
-    workdaysPerWeek: v('workdays'), workStartHour: v('start'), workHours: v('hours'), lateChance: v('late') / 100, rampDays: DEMAND[ramp].days,
+    workdaysPerWeek: v('workdays'), workStartHour: v('start'), workHours: v('hours'), rampDays: DEMAND[ramp].days,
+    earlyChance: v('early') / 100, lateChance: v('late') / 100, noShowChance: v('noshow') / 100,
   };
 }
 
-const workText = () => `Radi se ${config.workHours} h dnevno, od ${config.workStartHour}:00. Noći i vikendi se preskaču, a skladištenje se naplaćuje svaki kalendarski dan.`;
+const workText = () => `Radi se ${config.workHours} h dnevno, od ${config.workStartHour}:00, s jednom rampom i parkingom za ${PARKING.stalls.length} šlepera. Noći i vikendi se preskaču, a skladištenje se naplaćuje svaki kalendarski dan.`;
 function markDirty() { el<HTMLButtonElement>('apply').disabled = false; el('config-hint').textContent = 'Klikni gumb da simulacija krene ispočetka s novim postavkama.'; }
 
 el('apply').addEventListener('click', () => {
@@ -75,7 +77,7 @@ document.querySelectorAll<HTMLButtonElement>('[data-ramp]').forEach(button => bu
   markDirty();
 }));
 document.querySelectorAll('.control-panel input, .control-panel select').forEach(input => input.addEventListener('input', markDirty));
-el('levels').addEventListener('input', () => { el('levels-help').textContent = `${180 * Number(el<HTMLSelectElement>('levels').value)} paletnih mjesta`; });
+el('levels').addEventListener('input', () => { el('levels-help').textContent = `${(sim.layout.perLevel * Number(el<HTMLSelectElement>('levels').value)).toLocaleString('hr-HR')} paletnih mjesta`; });
 
 function setSpeed(index: number) {
   speedIndex = Math.max(0, Math.min(SPEEDS.length - 1, index));

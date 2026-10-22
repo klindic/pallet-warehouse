@@ -1,6 +1,6 @@
 import { CLIENTS } from './simulation/config';
-import { DAY, clockLabel, dateLabel, dateOf, longDate, type Simulation } from './simulation/engine';
-import { BAYS, RACK, SITE } from './simulation/layout';
+import { DAY, clockLabel, dateLabel, dateOf, durationLabel, longDate, type Simulation } from './simulation/engine';
+import { DOOR, HALL, PARCEL, PARKING, RACK, SITE } from './simulation/layout';
 import type { DayRecord, Truck } from './simulation/types';
 
 const euro0 = new Intl.NumberFormat('hr-HR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
@@ -25,7 +25,7 @@ export function renderHud(sim: Simulation) {
   const pct = Math.min(1, stock / cap);
   ($('hud-meter') as HTMLElement).style.width = `${pct * 100}%`;
   $('hud-meter').dataset.level = pct > 0.92 ? 'full' : pct > 0.6 ? 'busy' : 'ok';
-  $('hud-pct').textContent = `${n0.format(pct * 100)} %${sim.stagingCount ? ` · ${sim.stagingCount} na podu` : ''}`;
+  $('hud-pct').textContent = `${n0.format(pct * 100)} %${sim.stagingCount ? ` · pod ${sim.stagingCount}` : ''}`;
   $('hud-today').textContent = eur(sim.liveRevenueToday());
   $('hud-rate').textContent = `${euro2.format(sim.config.pricePerPalletDay)} × paleta`;
   const phase = sim.phase();
@@ -33,6 +33,8 @@ export function renderHud(sim: Simulation) {
   badge.dataset.phase = phase;
   badge.querySelector('span')!.textContent = PHASES[phase];
   const busy = sim.forklifts.map((f, i) => `${sim.forklifts.length > 1 ? `Viličar ${i + 1}` : 'Viličar'}: ${f.task}`);
+  const parked = sim.stalls.filter(Boolean).length;
+  if (parked) busy.push(`parking ${parked}/${PARKING.stalls.length}`);
   $('activity').textContent = busy.join(' · ');
 }
 
@@ -42,7 +44,7 @@ export function renderEarnings(sim: Simulation) {
   const h = sim.history, t = sim.totals, cfg = sim.config;
   const today = sim.liveRevenueToday();
   $('k-today').textContent = eur(today);
-  $('k-today-sub').textContent = `${n0.format(sim.stock)} paleta × ${euro2.format(cfg.pricePerPalletDay)}`;
+  $('k-today-sub').textContent = `${n0.format(sim.stock)} paleta × ${euro2.format(cfg.pricePerPalletDay)} + manipulacija ${eur(sim.today.handling)}`;
   const mk = monthKey(sim.day);
   const monthDays = h.filter(d => monthKey(d.day) === mk);
   const month = monthDays.reduce((a, d) => a + d.revenue, 0) + today;
@@ -61,8 +63,9 @@ export function renderEarnings(sim: Simulation) {
   if (last.length >= 7) {
     const avg = last.reduce((a, d) => a + d.revenue, 0) / last.length;
     const occ = last.reduce((a, d) => a + d.occupancy, 0) / last.length;
+    const handling = last.reduce((a, d) => a + d.handling, 0) / last.length;
     const perMonth = avg * 30.4, monthlyNet = perMonth - cfg.monthlyCosts;
-    $('projection').innerHTML = `Zadnjih ${last.length} dana: prosječno <b>${eur(avg)}</b> dnevno uz ${n0.format(occ * 100)} % popunjenosti, što je oko <b>${eur(perMonth)}</b> mjesečno i <b>${eur(perMonth * 12)}</b> godišnje. Nakon troškova ostaje <b class="${monthlyNet >= 0 ? 'plus' : 'minus'}">${eur(monthlyNet)}</b> mjesečno, odnosno ${eur(monthlyNet / 3)} po ortaku. Puno skladište bi donosilo ${eur(sim.capacity * cfg.pricePerPalletDay)} dnevno.`;
+    $('projection').innerHTML = `Zadnjih ${last.length} dana: prosječno <b>${eur(avg)}</b> dnevno uz ${n0.format(occ * 100)} % popunjenosti, što je oko <b>${eur(perMonth)}</b> mjesečno i <b>${eur(perMonth * 12)}</b> godišnje. Od toga je manipulacija ${eur(handling * 30.4)} mjesečno. Nakon troškova ostaje <b class="${monthlyNet >= 0 ? 'plus' : 'minus'}">${eur(monthlyNet)}</b> mjesečno. Samo skladištenje punog skladišta donosilo bi ${eur(sim.capacity * cfg.pricePerPalletDay)} dnevno.`;
   } else $('projection').textContent = 'Projekcija se računa nakon prvog tjedna rada.';
   drawDaily(sim);
   drawCumulative(sim);
@@ -127,18 +130,25 @@ function drawCumulative(sim: Simulation) {
 
 function truckStatus(sim: Simulation, t: Truck | undefined, planned: number): { text: string; tone: string } {
   if (!t) return { text: 'Otišao', tone: 'done' };
-  const bay = t.bay >= 0 ? BAYS[t.bay].name : '';
+  const stall = `P${t.stall + 1}`;
+  const turned = t.kind === 'in' && !t.serviceAt;
   switch (t.state) {
     case 'scheduled': return sim.time > planned + 15 * 60 ? { text: 'Kasni', tone: 'warn' } : { text: 'Najavljen', tone: 'idle' };
-    case 'queue': return { text: 'Čeka na ulazu', tone: 'warn' };
-    case 'entering': return { text: `Ulazi · ${bay}`, tone: 'move' };
-    case 'prep': return { text: `${bay} · otvara ceradu`, tone: 'move' };
+    case 'street': return { text: 'Stiže na parcelu', tone: 'move' };
+    case 'toStall': return { text: `Vozi na parking ${stall}`, tone: 'move' };
+    case 'parked': return planned - sim.time > 15 * 60
+      ? { text: `Parking ${stall} · poranio, termin ${clockLabel(planned)}`, tone: 'idle' }
+      : { text: `Parking ${stall} · čeka rampu ${durationLabel(sim.time - t.arrivedAt)}`, tone: sim.time > planned + 15 * 60 ? 'warn' : 'idle' };
+    case 'toBay': return { text: t.servedEarly ? 'Na rampu, ubačen ranije' : 'Vozi na rampu', tone: 'move' };
+    case 'prep': return { text: 'Rampa · otvara ceradu', tone: 'move' };
     case 'service': return t.kind === 'in'
-      ? { text: `${bay} · istovar ${t.pallets - t.trailer.filter(Boolean).length}/${t.pallets}`, tone: 'in' }
-      : { text: `${bay} · utovar ${t.loaded}/${t.pallets}`, tone: 'out' };
-    case 'closing': return { text: `${bay} · papiri`, tone: 'move' };
-    case 'leaving': return { text: 'Odlazi', tone: 'move' };
-    case 'gone': return { text: `Gotovo ${clockLabel(t.leftAt)}`, tone: 'done' };
+      ? { text: `Rampa · istovar ${t.pallets - t.trailer.filter(Boolean).length}/${t.pallets}`, tone: 'in' }
+      : { text: `Rampa · utovar ${t.loaded}/${t.pallets}`, tone: 'out' };
+    case 'closing': return t.atZone ? { text: 'Zatvara ceradu', tone: 'move' } : { text: t.papers < 2 ? 'Rampa · papiri, CMR' : 'Rampa · izlazi', tone: 'move' };
+    case 'toClose': return { text: 'Zatvara ceradu', tone: 'move' };
+    case 'leaving': return turned ? { text: 'Vraćen, nema mjesta', tone: 'warn' } : { text: 'Odlazi', tone: 'move' };
+    case 'gone': return turned ? { text: 'Vraćen, nema mjesta', tone: 'warn' } : { text: `Gotovo ${clockLabel(t.leftAt)}${t.servedEarly ? ' · ranije' : ''}`, tone: 'done' };
+    case 'noshow': return { text: 'Nije došao', tone: 'warn' };
   }
 }
 
@@ -150,7 +160,7 @@ export function renderSchedule(sim: Simulation) {
   $('sched-summary').textContent = apps.length
     ? `${dayLabel} · ${apps.length} termina${rej.length ? ` · odbijeno ${rej.length} (${rej.filter(r => r.reason === 'mjesto').length ? 'nema mjesta' : 'nema termina'})` : ''}`
     : `${dayLabel} · nema najavljenih šlepera`;
-  // Gantt: planirani termin (obrub) i stvarno vrijeme na parceli (puna traka).
+  // Gantt: dogovoreni termin (obrub), čekanje na parkingu (svijetla traka) i rampa do odlaska (puna traka).
   const day = sim.plannedDay;
   const t0 = day * DAY + (sim.config.workStartHour - 0.5) * 3600;
   let t1 = sim.workEnd(Math.max(0, day)) + 1800;
@@ -162,9 +172,12 @@ export function renderSchedule(sim: Simulation) {
   for (let hh = Math.ceil(t0 / 3600); hh * 3600 <= t1; hh++) hours.push(`<line class="grid" x1="${x(hh * 3600)}" x2="${x(hh * 3600)}" y1="${top - 4}" y2="${height - 6}"/><text x="${x(hh * 3600)}" y="${top - 7}" text-anchor="middle">${String(hh % 24).padStart(2, '0')}</text>`);
   const rows = apps.map((a, i) => {
     const tr = byId.get(a.truckId), yy = top + i * rowH;
-    const start = tr && tr.state !== 'scheduled' ? tr.queuedAt : 0;
-    const end = tr?.state === 'gone' ? tr.leftAt : sim.time;
-    const actual = start ? `<rect class="bar ${a.kind}" x="${x(start)}" y="${yy + 3}" width="${Math.max(1.5, x(end) - x(start))}" height="${rowH - 6}" rx="2"/>` : '';
+    const bar = (cls: string, from: number, to: number) => `<rect class="bar ${cls}" x="${x(from)}" y="${yy + 3}" width="${Math.max(1.5, x(to) - x(from))}" height="${rowH - 6}" rx="2"/>`;
+    let actual = '';
+    if (tr && tr.arrivedAt && tr.state !== 'scheduled' && tr.state !== 'noshow') {
+      actual += bar('wait', tr.arrivedAt, tr.calledAt || sim.time);
+      if (tr.calledAt) actual += bar(a.kind, tr.calledAt, tr.state === 'gone' ? tr.leftAt : sim.time);
+    }
     return `<text class="row-label" x="4" y="${yy + rowH / 2 + 3}">${clockLabel(a.planned)} #${a.truckId}</text><rect class="slot ${a.kind}" x="${x(a.planned)}" y="${yy + 1.5}" width="${Math.max(2, x(a.estEnd) - x(a.planned))}" height="${rowH - 3}" rx="3"/>${actual}`;
   }).join('');
   const now = sim.day === day && sim.time >= t0 && sim.time <= t1 ? `<line class="now" x1="${x(sim.time)}" x2="${x(sim.time)}" y1="${top - 4}" y2="${height - 4}"/>` : '';
@@ -179,21 +192,27 @@ export function renderSchedule(sim: Simulation) {
 export function renderOps(sim: Simulation) {
   const t = sim.totals, today = sim.today;
   const min = (s: number) => `${n0.format(s / 60)} min`;
-  const util = t.workSeconds ? t.busy / t.workSeconds : 0;
-  const todayUtil = today.busy / (sim.config.workHours * 3600);
+  const hours = (s: number) => `${n1.format(s / 3600)} h`;
+  // Prosjek zadnjih 60 radnih dana, da početak posla ne povlači brojku dolje.
+  const recent = sim.history.filter(d => d.workday).slice(-60);
+  const avgBusy = recent.length ? recent.reduce((a, d) => a + d.busy, 0) / recent.length : 0;
+  const avgBreaks = recent.length ? recent.reduce((a, d) => a + d.breaks, 0) / recent.length : 0;
   const rows: [string, string][] = [
     ['Šleperi ukupno', `${n0.format(t.trucksIn)} istovara · ${n0.format(t.trucksOut)} utovara`],
     ['Palete ukupno', `${n0.format(t.palletsIn)} ulaz · ${n0.format(t.palletsOut)} izlaz`],
-    ['Šleper na parceli, prosjek', t.trucksDone ? min(t.siteTime / t.trucksDone) : '—'],
-    ['Čekanje na ulazu, prosjek', sim.entered ? min(t.waitTime / sim.entered) : '—'],
+    ['Viličar radi danas', `${hours(today.busy)} od ${sim.config.workHours} h`],
+    ['Viličar radi, prosjek', recent.length ? `${hours(avgBusy)} dnevno (zadnjih ${recent.length} radnih dana)` : '—'],
+    ['Pauze i gablec, prosjek', recent.length ? `${min(avgBreaks)} dnevno` : '—'],
     ['Ciklus viličara po paleti', t.cycles ? `${n0.format(t.cycleTime / t.cycles)} s` : '—'],
-    ['Viličar zauzet, danas', `${n0.format(Math.min(1.5, todayUtil) * 100)} %`],
-    ['Viličar zauzet, ukupno', `${n0.format(util * 100)} %`],
+    ['Šleper na parceli, prosjek', t.trucksDone ? min(t.siteTime / t.trucksDone) : '—'],
+    ['Čekanje na parkingu, prosjek', sim.entered ? min(t.waitTime / sim.entered) : '—'],
+    ['Poranili / kasnili / nisu došli', `${n0.format(t.early)} / ${n0.format(t.late)} / ${n0.format(t.noShows)}`],
+    ['Ubačeni ranije na slobodnu rampu', n0.format(t.servedEarly)],
     ['Prekovremeno ukupno', `${n1.format((t.overtime + today.overtime) / 3600)} h`],
     ['Zahtjevi za skladištenje', `${n0.format(t.requests)} · odbijeno ${n0.format(t.rejected)}`],
     ['Odbijeno zbog mjesta / termina', `${n0.format(t.rejectedSpace)} / ${n0.format(t.rejectedTime)}`],
     ['Izgubljeni prihod, procjena', eur(t.lost)],
-    ['Potražnja danas', `${n1.format(today.demand || sim.demandAt(sim.workday))} šlepera za istovar`],
+    ['Potražnja danas', `${n1.format(today.demand || sim.demandAt(sim.workday))} upita za dovoz (prosjek)`],
   ];
   $('ops-body').innerHTML = rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join('');
 }
@@ -201,24 +220,26 @@ export function renderOps(sim: Simulation) {
 export function renderSite(sim: Simulation) {
   const l = sim.layout, levels = l.levels;
   const green = SITE.greenArea;
-  $('site-chip').textContent = `2.000 m² parcela · 800 m² hala · ${n0.format(l.capacity)} mjesta`;
+  $('site-chip').textContent = `${n0.format(SITE.parcelArea)} m² parcela · ${n0.format(SITE.hallArea)} m² hala · ${n0.format(l.capacity)} mjesta`;
   $('levels-help').textContent = `${n0.format(l.capacity)} paletnih mjesta`;
   $('site-facts').innerHTML = `
     <dl>
-      <div><dt>Parcela</dt><dd>50 × 40 m = ${n0.format(SITE.parcelArea)} m²</dd></div>
-      <div><dt>Hala</dt><dd>40 × 20 m = ${n0.format(SITE.hallArea)} m², svijetla visina ~${n1.format(l.hallHeight)} m</dd></div>
-      <div><dt>Regali</dt><dd>12 redova × ${RACK.bays} polja × ${RACK.perBay} palete × ${levels} razine = <b>${n0.format(l.capacity)} mjesta</b></dd></div>
-      <div><dt>Prolazi</dt><dd>6 × ${n1.format(RACK.aisle)} m za protuteži viličar, svaki prolaz izlazi u hodnik prijema</dd></div>
-      <div><dt>Prijem i otprema</dt><dd>pojas od 6 m uz vrata, ${l.staging.length} podnih mjesta za međuskladište</dd></div>
-      <div><dt>Dvorište</dt><dd>50 × 18 m = ${n0.format(SITE.yardArea)} m² asfalta: 2 rampe za bočni istovar, obilazni trak, ulaz s istoka i izlaz na zapad bez okretanja šlepera</dd></div>
-      <div><dt>Ostalo</dt><dd>ured s WC-om (24 m²), punjač viličara, zelenilo ${n0.format(green)} m² (${n0.format(green / SITE.parcelArea * 100)} %)</dd></div>
+      <div><dt>Parcela</dt><dd>${PARCEL.x1 - PARCEL.x0} × ${PARCEL.z1 - PARCEL.z0} m = ${n0.format(SITE.parcelArea)} m²</dd></div>
+      <div><dt>Hala</dt><dd>${HALL.x1 - HALL.x0} × ${HALL.z1 - HALL.z0} m = ${n0.format(SITE.hallArea)} m², svijetla visina ~${n1.format(l.hallHeight)} m</dd></div>
+      <div><dt>Regali</dt><dd>${l.rows.length} redova × ${RACK.bays} polja × ${RACK.perBay} palete × ${levels} razine = <b>${n0.format(l.capacity)} mjesta</b></dd></div>
+      <div><dt>Prolazi</dt><dd>${l.aisles.length} × ${n1.format(RACK.aisle)} m za protuteži viličar, svi izlaze u hodnik uz vrata</dd></div>
+      <div><dt>Rampa</dt><dd>jedna, za bočni istovar kroz vrata od ${DOOR.width} m: istovaruje se ili utovaruje uvijek samo jedan šleper</dd></div>
+      <div><dt>Parking</dt><dd>${PARKING.stalls.length} mjesta za šlepere koji čekaju termin, uz istočni zid hale; vozač tu otvori ceradu dok čeka</dd></div>
+      <div><dt>Promet</dt><dd>ulaz s istoka, izlaz na zapad, zona za zatvaranje cerade prema izlazu da rampa odmah bude slobodna</dd></div>
+      <div><dt>Prijem i otprema</dt><dd>${l.staging.length} podnih mjesta uz vrata za brzi istovar i robu pripremljenu za odvoz</dd></div>
+      <div><dt>Ostalo</dt><dd>ured s WC-om, punjač viličara, asfalt ${n0.format(SITE.pavedArea)} m², zelenilo ${n0.format(green)} m² (${n0.format(green / SITE.parcelArea * 100)} %)</dd></div>
     </dl>
-    <p class="note"><b>Zašto ${n0.format(l.capacity)}, a ne 1.500 mjesta?</b> Prolazi za viličar i pojas prijema zauzimaju gotovo polovicu poda. Za oko 1.500 mjesta treba hala od ~1.600 m² ili regali viši od 10 m s retrak viličarom. GUP traži najmanje 20 % zelenila, pa projektant mora ovaj raspored još uskladiti.</p>`;
+    <p class="note"><b>Treba veća parcela.</b> Za oko 1.500 mjesta treba hala od ~1.600 m². Uz rampu, parking za ${PARKING.stalls.length} šlepera, okretište i najmanje 20 % zelenila iz GUP-a to je parcela od oko ${n0.format(SITE.parcelArea)} m². Tri parcele od ukupno ~3.000 m² nisu dovoljne.</p>`;
 }
 
 export function exportCSV(sim: Simulation) {
-  const headers = ['dan', 'datum', 'radni_dan', 'palete_na_skladistu', 'popunjenost_%', 'prihod_skladistenje_eur', 'prihod_manipulacija_eur', 'prihod_eur', 'trosak_eur', 'kumulativ_prihod_eur', 'kumulativ_trosak_eur', 'sleperi_istovar', 'sleperi_utovar', 'palete_ulaz', 'palete_izlaz', 'zahtjevi', 'odbijeno', 'izgubljeno_eur', 'vilicar_zauzet_h', 'prekovremeno_h', 'potraznja'];
-  const rows = sim.history.map(d => [d.day + 1, dateLabel(d.day, false), d.workday ? 'da' : 'ne', d.stock, (d.occupancy * 100).toFixed(1), d.storage.toFixed(2), d.handling.toFixed(2), d.revenue.toFixed(2), d.cost.toFixed(2), d.cumRevenue.toFixed(2), d.cumCost.toFixed(2), d.trucksIn, d.trucksOut, d.palletsIn, d.palletsOut, d.requests, d.rejected, d.lost.toFixed(2), (d.busy / 3600).toFixed(2), (d.overtime / 3600).toFixed(2), d.demand.toFixed(2)]);
+  const headers = ['dan', 'datum', 'radni_dan', 'palete_na_skladistu', 'popunjenost_%', 'prihod_skladistenje_eur', 'prihod_manipulacija_eur', 'prihod_eur', 'trosak_eur', 'kumulativ_prihod_eur', 'kumulativ_trosak_eur', 'sleperi_istovar', 'sleperi_utovar', 'palete_ulaz', 'palete_izlaz', 'zahtjevi', 'odbijeno', 'izgubljeno_eur', 'vilicar_rad_h', 'pauze_min', 'prekovremeno_h', 'poranili', 'kasnili', 'nisu_dosli', 'ubaceni_ranije', 'cekanje_parking_min', 'potraznja'];
+  const rows = sim.history.map(d => [d.day + 1, dateLabel(d.day, false), d.workday ? 'da' : 'ne', d.stock, (d.occupancy * 100).toFixed(1), d.storage.toFixed(2), d.handling.toFixed(2), d.revenue.toFixed(2), d.cost.toFixed(2), d.cumRevenue.toFixed(2), d.cumCost.toFixed(2), d.trucksIn, d.trucksOut, d.palletsIn, d.palletsOut, d.requests, d.rejected, d.lost.toFixed(2), (d.busy / 3600).toFixed(2), (d.breaks / 60).toFixed(0), (d.overtime / 3600).toFixed(2), d.early, d.late, d.noShows, d.servedEarly, (d.parkingWait / 60).toFixed(0), d.demand.toFixed(2)]);
   const csv = '﻿' + [headers, ...rows].map(r => r.map(v => `"${String(v).replaceAll('"', '""')}"`).join(';')).join('\r\n');
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
   const a = document.createElement('a');
